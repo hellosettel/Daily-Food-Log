@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a1814" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Daily Log" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+
+  <title>Daily Log</title>
+</head>
+<body>
+  <!-- Auth screen -->
+  <div id="auth-screen" class="screen auth-screen hidden">
+    <div class="auth-content">
+      <div class="auth-mark">
+        <span class="mark-dot"></span>
+      </div>
+      <h1 class="auth-title">Daily<br/>Log</h1>
+      <p class="auth-subtitle">Awareness, not restriction.</p>
+
+      <div class="auth-form">
+        <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email" inputmode="email" />
+        <button id="auth-submit" class="btn-primary">Send magic link</button>
+        <p id="auth-message" class="auth-message"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading screen -->
+  <div id="loading-screen" class="screen loading-screen">
+    <div class="loading-mark">
+      <span class="mark-dot pulsing"></span>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <div id="app" class="app hidden">
+
+    <!-- ===== TODAY VIEW ===== -->
+    <section id="view-today" class="view active">
+      <header class="day-header">
+        <button id="day-prev" class="day-nav-btn" aria-label="Previous day">‹</button>
+        <div class="day-header-center">
+          <div class="day-eyebrow" id="day-eyebrow">Today</div>
+          <div class="day-date" id="day-date">—</div>
+        </div>
+        <button id="day-next" class="day-nav-btn" aria-label="Next day">›</button>
+      </header>
+
+      <div class="content-pad">
+
+        <!-- Macro summary -->
+        <div class="macro-block">
+          <div class="macro-row">
+            <div class="macro-label">
+              <span class="macro-name">Protein</span>
+              <span class="macro-values"><span id="protein-current">0</span><span class="macro-target"> / <span id="protein-target">180</span>g</span></span>
+            </div>
+            <div class="macro-bar"><div id="protein-fill" class="macro-fill"></div></div>
+          </div>
+
+          <div class="macro-row">
+            <div class="macro-label">
+              <span class="macro-name">Calories</span>
+              <span class="macro-values"><span id="calories-current">0</span><span class="macro-target"> / <span id="calories-target">2200</span></span></span>
+            </div>
+            <div class="macro-bar"><div id="calories-fill" class="macro-fill"></div></div>
+          </div>
+
+          <div class="macro-grid">
+            <div class="macro-mini">
+              <div class="mini-name">Carbs</div>
+              <div class="mini-value"><span id="carbs-current">0</span>g</div>
+            </div>
+            <div class="macro-mini">
+              <div class="mini-name">Fat</div>
+              <div class="mini-value"><span id="fat-current">0</span>g</div>
+            </div>
+            <div class="macro-mini sugar-mini">
+              <div class="mini-name">Sugar <span id="sugar-asterisk" class="asterisk hidden" title="Some logged items had no sugar value">*</span></div>
+              <div class="mini-value"><span id="sugar-current">0</span>g</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day note -->
+        <div class="note-block">
+          <input type="text" id="day-note" placeholder="A note about today…" maxlength="280" />
+        </div>
+
+        <!-- Meals -->
+        <div class="meals">
+          <div class="meal-block" data-meal="breakfast">
+            <div class="meal-head">
+              <h3>Breakfast</h3>
+              <button class="meal-add-btn" data-meal="breakfast">+ Add</button>
+            </div>
+            <ul class="meal-items" id="items-breakfast"></ul>
+          </div>
+
+          <div class="meal-block" data-meal="lunch">
+            <div class="meal-head">
+              <h3>Lunch</h3>
+              <button class="meal-add-btn" data-meal="lunch">+ Add</button>
+            </div>
+            <ul class="meal-items" id="items-lunch"></ul>
+          </div>
+
+          <div class="meal-block" data-meal="dinner">
+            <div class="meal-head">
+              <h3>Dinner</h3>
+              <button class="meal-add-btn" data-meal="dinner">+ Add</button>
+            </div>
+            <ul class="meal-items" id="items-dinner"></ul>
+          </div>
+
+          <div class="meal-block" data-meal="snack">
+            <div class="meal-head">
+              <h3>Snacks</h3>
+              <button class="meal-add-btn" data-meal="snack">+ Add</button>
+            </div>
+            <ul class="meal-items" id="items-snack"></ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== CALENDAR VIEW ===== -->
+    <section id="view-calendar" class="view">
+      <header class="page-header">
+        <button id="cal-prev" class="day-nav-btn" aria-label="Previous month">‹</button>
+        <div class="day-header-center">
+          <div class="day-eyebrow">Month</div>
+          <div class="day-date" id="cal-month-label">—</div>
+        </div>
+        <button id="cal-next" class="day-nav-btn" aria-label="Next month">›</button>
+      </header>
+
+      <div class="content-pad">
+        <div class="cal-legend">
+          <span class="legend-item"><span class="legend-dot legend-hit"></span>Protein hit</span>
+          <span class="legend-item"><span class="legend-dot legend-logged"></span>Logged</span>
+          <span class="legend-item"><span class="legend-dot legend-empty"></span>No log</span>
+        </div>
+
+        <div class="cal-weekdays">
+          <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+        </div>
+
+        <div class="cal-grid" id="cal-grid"></div>
+
+        <div class="cal-summary" id="cal-summary"></div>
+      </div>
+    </section>
+
+    <!-- ===== WEIGHT VIEW ===== -->
+    <section id="view-weight" class="view">
+      <header class="page-header">
+        <div class="page-header-text">
+          <div class="day-eyebrow">Weight</div>
+          <div class="day-date">Trend</div>
+        </div>
+      </header>
+
+      <div class="content-pad">
+        <div class="weight-input-block">
+          <input type="number" id="weight-input" placeholder="—" step="0.1" inputmode="decimal" />
+          <span class="weight-unit">lbs</span>
+          <button id="weight-log-btn" class="btn-primary">Log</button>
+        </div>
+
+        <div class="weight-chart-block">
+          <svg id="weight-chart" viewBox="0 0 600 240" preserveAspectRatio="none"></svg>
+          <div class="weight-stats" id="weight-stats"></div>
+        </div>
+
+        <div class="weight-history" id="weight-history"></div>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS VIEW ===== -->
+    <section id="view-settings" class="view">
+      <header class="page-header">
+        <div class="page-header-text">
+          <div class="day-eyebrow">Settings</div>
+          <div class="day-date" id="settings-user">—</div>
+        </div>
+      </header>
+
+      <div class="content-pad">
+        <div class="settings-section">
+          <h3 class="settings-h">Daily Targets</h3>
+          <div class="settings-row">
+            <label for="target-protein">Protein</label>
+            <div class="settings-input"><input type="number" id="target-protein" /><span>g</span></div>
+          </div>
+          <div class="settings-row">
+            <label for="target-calories">Calories</label>
+            <div class="settings-input"><input type="number" id="target-calories" /><span>kcal</span></div>
+          </div>
+          <button id="targets-save" class="btn-secondary">Save targets</button>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-h">Food Library</h3>
+          <p class="settings-note">Shared with anyone using this app. Add foods you eat regularly.</p>
+          <button id="manage-foods-btn" class="btn-secondary">Manage foods</button>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-h">Data</h3>
+          <button id="export-btn" class="btn-secondary">Export all my data (JSON)</button>
+          <p class="settings-note small">Downloads everything you've logged. Your escape hatch.</p>
+        </div>
+
+        <div class="settings-section">
+          <h3 class="settings-h">Sync</h3>
+          <div class="sync-status" id="sync-status">—</div>
+        </div>
+
+        <div class="settings-section">
+          <button id="signout-btn" class="btn-text">Sign out</button>
+        </div>
+
+        <div class="settings-footer">
+          <span class="footer-mark"><span class="mark-dot small"></span></span>
+          <span>v1.0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="today">
+        <span class="nav-label">Today</span>
+      </button>
+      <button class="nav-btn" data-view="calendar">
+        <span class="nav-label">Month</span>
+      </button>
+      <button class="nav-btn" data-view="weight">
+        <span class="nav-label">Weight</span>
+      </button>
+      <button class="nav-btn" data-view="settings">
+        <span class="nav-label">More</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ===== ADD MEAL MODAL ===== -->
+  <div id="modal-add" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-add"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2 id="modal-add-title">Add to Breakfast</h2>
+        <button class="modal-close" data-close="modal-add">×</button>
+      </div>
+
+      <div class="modal-body">
+        <input type="text" id="food-search" placeholder="Search foods…" autocomplete="off" />
+
+        <div class="favorites-section" id="favorites-section">
+          <h4 class="section-h">Your favorites</h4>
+          <div class="favorites-grid" id="favorites-grid"></div>
+        </div>
+
+        <div class="all-foods-section">
+          <h4 class="section-h">All foods</h4>
+          <ul class="food-list" id="food-list"></ul>
+        </div>
+
+        <button id="custom-add-btn" class="btn-secondary full-width">+ Custom item (one-off)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SERVING MODAL ===== -->
+  <div id="modal-serving" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-serving"></div>
+    <div class="modal-sheet small">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2 id="serving-food-name">—</h2>
+        <button class="modal-close" data-close="modal-serving">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="serving-stepper">
+          <button class="step-btn" id="serving-down">−</button>
+          <div class="serving-display">
+            <div class="serving-count" id="serving-count">1</div>
+            <div class="serving-label" id="serving-unit">serving</div>
+          </div>
+          <button class="step-btn" id="serving-up">+</button>
+        </div>
+
+        <div class="serving-preview" id="serving-preview"></div>
+
+        <button id="serving-confirm" class="btn-primary full-width">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOM ITEM MODAL ===== -->
+  <div id="modal-custom" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-custom"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2>Custom item</h2>
+        <button class="modal-close" data-close="modal-custom">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="settings-note">One-off item. Won't be saved to the food library.</p>
+        <div class="form-row">
+          <label>Name</label>
+          <input type="text" id="custom-name" placeholder="e.g. Restaurant burger" />
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Calories</label>
+            <input type="number" id="custom-cal" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>Protein (g)</label>
+            <input type="number" id="custom-protein" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>Carbs (g)</label>
+            <input type="number" id="custom-carbs" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>Fat (g)</label>
+            <input type="number" id="custom-fat" inputmode="numeric" />
+          </div>
+          <div class="form-row full-row">
+            <label>Sugar (g) <span class="hint">— leave blank if unknown</span></label>
+            <input type="number" id="custom-sugar" inputmode="numeric" />
+          </div>
+        </div>
+        <button id="custom-confirm" class="btn-primary full-width">Add to log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MANAGE FOODS MODAL ===== -->
+  <div id="modal-foods" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-foods"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2>Food library</h2>
+        <button class="modal-close" data-close="modal-foods">×</button>
+      </div>
+      <div class="modal-body">
+        <button id="add-food-btn" class="btn-secondary full-width">+ New food</button>
+        <ul class="food-manage-list" id="food-manage-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EDIT/NEW FOOD MODAL ===== -->
+  <div id="modal-edit-food" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-edit-food"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2 id="edit-food-title">New food</h2>
+        <button class="modal-close" data-close="modal-edit-food">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Name</label>
+          <input type="text" id="ef-name" placeholder="e.g. Grilled chicken breast" />
+        </div>
+        <div class="form-row">
+          <label>Serving description</label>
+          <input type="text" id="ef-serving-desc" placeholder="e.g. 6 oz cooked" />
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Calories</label>
+            <input type="number" id="ef-cal" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>Protein (g)</label>
+            <input type="number" id="ef-protein" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>Carbs (g)</label>
+            <input type="number" id="ef-carbs" inputmode="numeric" />
+          </div>
+          <div class="form-row">
+            <label>Fat (g)</label>
+            <input type="number" id="ef-fat" inputmode="numeric" />
+          </div>
+          <div class="form-row full-row">
+            <label>Sugar (g) <span class="hint">— blank if unknown</span></label>
+            <input type="number" id="ef-sugar" inputmode="numeric" />
+          </div>
+        </div>
+        <div class="ef-actions">
+          <button id="ef-delete" class="btn-text danger hidden">Delete</button>
+          <button id="ef-save" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- App config (you'll edit this with your Supabase URL + anon key) -->
+  <script src="/js/config.js"></script>
+
+  <!-- App modules -->
+  <script src="/js/db.js"></script>
+  <script src="/js/seed.js"></script>
+  <script src="/js/sync.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/app.js"></script>
+
+  <!-- Service worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch(err => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
