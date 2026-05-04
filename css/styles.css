@@ -197,6 +197,34 @@ ul { list-style: none; padding: 0; margin: 0; }
   border-color: var(--ink);
 }
 
+#auth-code {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  padding: 18px;
+}
+
+.auth-code-prompt {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.auth-code-prompt span {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.auth-back {
+  display: block;
+  margin: 12px auto 0;
+  font-size: 13px;
+}
+
 .auth-message {
   margin-top: 16px;
   font-size: 14px;
