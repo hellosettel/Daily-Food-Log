@@ -71,8 +71,8 @@
   verifyBtn.addEventListener('click', async () => {
     codeMsg.classList.remove('error', 'success');
     const token = codeInput.value.trim();
-    if (!/^\d{6}$/.test(token)) {
-      codeMsg.textContent = 'Enter the 6-digit code from your email';
+    if (!/^\d{6,8}$/.test(token)) {
+      codeMsg.textContent = 'Enter the code from your email';
       codeMsg.classList.add('error');
       return;
     }
@@ -98,11 +98,17 @@
     if (e.key === 'Enter') verifyBtn.click();
   });
 
-  // Auto-submit when 6 digits are entered
+  // Auto-submit when full code is entered (Supabase tokens can be 6, 7, or 8 digits)
   codeInput.addEventListener('input', () => {
     const v = codeInput.value.replace(/\D/g, '');
     codeInput.value = v;
-    if (v.length === 6) verifyBtn.click();
+    if (v.length >= 6 && v.length <= 8) {
+      // Slight delay so the user sees the digit they just typed before we submit
+      clearTimeout(codeInput._submitTimer);
+      codeInput._submitTimer = setTimeout(() => {
+        if (codeInput.value === v && v.length >= 6) verifyBtn.click();
+      }, 400);
+    }
   });
 
   backBtn.addEventListener('click', showEmailForm);
