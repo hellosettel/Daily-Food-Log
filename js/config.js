@@ -15,7 +15,7 @@
    ============================================================ */
 
 window.APP_CONFIG = {
-  SUPABASE_URL: 'https://rraffekmphsudffijcoz.supabase.co/rest/v1/',
+  SUPABASE_URL: 'https://rraffekmphsudffijcoz.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_4nrx0PisYb4ARgt8nn3tZw_gPue_c0c',
 
   // Default targets for new users — they can change these in Settings
