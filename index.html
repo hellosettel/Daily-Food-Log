@@ -279,20 +279,53 @@
         <button class="modal-close" data-close="modal-add">×</button>
       </div>
 
+      <div class="modal-tabs">
+        <button class="tab-btn active" data-tab="search">Search</button>
+        <button class="tab-btn" data-tab="quicklog">Quick log</button>
+      </div>
+
       <div class="modal-body">
-        <input type="text" id="food-search" placeholder="Search foods…" autocomplete="off" />
 
-        <div class="favorites-section" id="favorites-section">
-          <h4 class="section-h">Your favorites</h4>
-          <div class="favorites-grid" id="favorites-grid"></div>
+        <!-- ===== Search tab ===== -->
+        <div class="tab-pane active" id="tab-search">
+          <input type="text" id="food-search" placeholder="Search foods…" autocomplete="off" />
+
+          <div class="favorites-section" id="favorites-section">
+            <h4 class="section-h">Your favorites</h4>
+            <div class="favorites-grid" id="favorites-grid"></div>
+          </div>
+
+          <div class="all-foods-section">
+            <h4 class="section-h">All foods</h4>
+            <ul class="food-list" id="food-list"></ul>
+          </div>
+
+          <button id="custom-add-btn" class="btn-secondary full-width">+ Custom item (one-off)</button>
         </div>
 
-        <div class="all-foods-section">
-          <h4 class="section-h">All foods</h4>
-          <ul class="food-list" id="food-list"></ul>
+        <!-- ===== Quick log tab (parser) ===== -->
+        <div class="tab-pane" id="tab-quicklog">
+          <p class="quicklog-hint">Type your meal in plain English. Include quantities and brands when you can.</p>
+          <textarea id="quicklog-input" placeholder="e.g. 6oz Rao's pasta with 4oz Graziano sausage and 1 cup grapes" rows="4"></textarea>
+          <button id="quicklog-parse" class="btn-primary full-width">Parse meal</button>
+          <p id="quicklog-status" class="quicklog-status"></p>
+
+          <div id="quicklog-results" class="quicklog-results hidden"></div>
+
+          <div id="quicklog-totals" class="quicklog-totals hidden">
+            <div class="totals-row">
+              <span>Calories</span><span id="qtotal-cal">0</span>
+            </div>
+            <div class="totals-row">
+              <span>Protein</span><span><span id="qtotal-p">0</span>g</span>
+            </div>
+            <div class="totals-row sugar-row">
+              <span>Sugar <span id="qtotal-sugar-asterisk" class="asterisk hidden">*</span></span><span><span id="qtotal-sugar">0</span>g</span>
+            </div>
+            <button id="quicklog-save" class="btn-primary full-width">Save all to log</button>
+          </div>
         </div>
 
-        <button id="custom-add-btn" class="btn-secondary full-width">+ Custom item (one-off)</button>
       </div>
     </div>
   </div>
@@ -392,8 +425,12 @@
       </div>
       <div class="modal-body">
         <div class="form-row">
+          <label>Brand <span class="hint">— optional</span></label>
+          <input type="text" id="ef-brand" placeholder="e.g. Rao's, Graziano" />
+        </div>
+        <div class="form-row">
           <label>Name</label>
-          <input type="text" id="ef-name" placeholder="e.g. Grilled chicken breast" />
+          <input type="text" id="ef-name" placeholder="e.g. Tomato basil sauce" />
         </div>
         <div class="form-row">
           <label>Serving description</label>
@@ -442,6 +479,7 @@
   <script src="/js/db.js"></script>
   <script src="/js/seed.js"></script>
   <script src="/js/sync.js"></script>
+  <script src="/js/parser.js"></script>
   <script src="/js/ui.js"></script>
   <script src="/js/app.js"></script>
 
