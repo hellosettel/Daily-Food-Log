@@ -11,7 +11,8 @@ const STATE = {
   currentYear: new Date().getFullYear(),
   pendingMeal: null,        // for serving modal: { mealType, food, servings }
   pendingMealType: null,    // for add modal: which meal we're adding to
-  editingFoodId: null       // for edit-food modal
+  editingFoodId: null,      // for edit-food modal
+  parsedItems: []           // for quick-log parser results
 };
 
 /* ============================================================
@@ -226,16 +227,43 @@ function bindAddFlow() {
 
   $('#custom-confirm').addEventListener('click', confirmCustom);
 
+  // Tab switching
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Quick log (parser)
+  $('#quicklog-parse').addEventListener('click', runParse);
+  $('#quicklog-save').addEventListener('click', saveParsedMeal);
+
   // Close handlers
   $$('[data-close]').forEach(el => {
     el.addEventListener('click', () => closeModal(el.dataset.close));
   });
 }
 
+function switchTab(name) {
+  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  $$('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+}
+
 async function openAddModal(mealType) {
   STATE.pendingMealType = mealType;
   $('#modal-add-title').textContent = `Add to ${capitalize(mealType)}`;
   $('#food-search').value = '';
+
+  // Reset to Search tab
+  switchTab('search');
+
+  // Reset Quick log tab
+  $('#quicklog-input').value = '';
+  $('#quicklog-status').textContent = '';
+  $('#quicklog-status').classList.remove('error', 'working');
+  $('#quicklog-results').classList.add('hidden');
+  $('#quicklog-results').innerHTML = '';
+  $('#quicklog-totals').classList.add('hidden');
+  STATE.parsedItems = [];
+
   await renderFavorites();
   await renderFoodList();
   showModal('modal-add');
@@ -289,18 +317,26 @@ async function renderFoodList() {
   const q = $('#food-search').value.toLowerCase().trim();
   const all = await DB.all('foods');
   const filtered = q
-    ? all.filter(f => f.name.toLowerCase().includes(q))
+    ? all.filter(f => {
+        const haystack = ((f.brand || '') + ' ' + f.name).toLowerCase();
+        return haystack.includes(q);
+      })
     : all;
-  filtered.sort((a, b) => a.name.localeCompare(b.name));
+  filtered.sort((a, b) => {
+    const aLabel = (a.brand ? a.brand + ' ' : '') + a.name;
+    const bLabel = (b.brand ? b.brand + ' ' : '') + b.name;
+    return aLabel.localeCompare(bLabel);
+  });
 
   const ul = $('#food-list');
   ul.innerHTML = '';
   for (const f of filtered) {
     const li = document.createElement('li');
     li.className = 'food-row';
+    const label = f.brand ? `<span class="food-brand">${escapeHTML(f.brand)}</span> ${escapeHTML(f.name)}` : escapeHTML(f.name);
     li.innerHTML = `
       <div class="food-row-info">
-        <div class="food-row-name">${escapeHTML(f.name)}</div>
+        <div class="food-row-name">${label}</div>
         <div class="food-row-meta">${escapeHTML(f.serving_desc || '')} · ${f.calories} cal · ${f.protein_g}g P</div>
       </div>
     `;
@@ -399,6 +435,253 @@ async function confirmCustom() {
   hideModal('modal-custom');
   renderToday();
   showToast('Logged');
+}
+
+/* ===== Parser (Quick log) ===== */
+
+async function runParse() {
+  const text = $('#quicklog-input').value.trim();
+  if (!text) {
+    setParseStatus('Type a meal first', 'error');
+    return;
+  }
+  if (text.length > 800) {
+    setParseStatus('Too long — try a shorter description', 'error');
+    return;
+  }
+
+  setParseStatus('Parsing…', 'working');
+  $('#quicklog-parse').disabled = true;
+  $('#quicklog-results').classList.add('hidden');
+  $('#quicklog-totals').classList.add('hidden');
+
+  try {
+    const result = await Parser.parseAndResolve(text);
+    if (!result.items || result.items.length === 0) {
+      setParseStatus('Nothing parseable — try again with quantities and items', 'error');
+      $('#quicklog-parse').disabled = false;
+      return;
+    }
+    STATE.parsedItems = result.items;
+    renderParseResults();
+    updateParseTotals();
+    $('#quicklog-results').classList.remove('hidden');
+    $('#quicklog-totals').classList.remove('hidden');
+    setParseStatus('', '');
+  } catch (e) {
+    setParseStatus('Parser error: ' + (e.message || 'try again'), 'error');
+  } finally {
+    $('#quicklog-parse').disabled = false;
+  }
+}
+
+function setParseStatus(msg, cls) {
+  const el = $('#quicklog-status');
+  el.textContent = msg;
+  el.classList.remove('error', 'working');
+  if (cls) el.classList.add(cls);
+}
+
+function renderParseResults() {
+  const container = $('#quicklog-results');
+  container.innerHTML = '';
+
+  STATE.parsedItems.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'qresult-row';
+
+    const macros = computeItemMacros(item);
+    const sugarVal = macros.sugar_g == null ? '' : macros.sugar_g;
+
+    row.innerHTML = `
+      <div class="qresult-head">
+        <div class="qresult-name">${escapeHTML(item.display_name)}</div>
+        <span class="qresult-source source-${item.source}">${labelForSource(item.source)}</span>
+      </div>
+      <div class="qresult-controls">
+        <input type="number" step="0.1" min="0" data-field="quantity" value="${item.original_quantity}" />
+        <input type="text" data-field="unit" value="${escapeHTML(item.original_unit)}" />
+        <span class="qresult-meta">${item.source === 'usda' && item.usda_match ? 'matched: ' + escapeHTML(item.usda_match.slice(0, 40)) : ''}</span>
+      </div>
+      <div class="qresult-macros">
+        <div class="qmacro"><span class="qmacro-label">Cal</span><input class="qmacro-input" type="number" data-macro="calories" value="${macros.calories}" /></div>
+        <div class="qmacro"><span class="qmacro-label">Pro</span><input class="qmacro-input" type="number" step="0.1" data-macro="protein_g" value="${macros.protein_g}" /></div>
+        <div class="qmacro"><span class="qmacro-label">Carb</span><input class="qmacro-input" type="number" step="0.1" data-macro="carbs_g" value="${macros.carbs_g}" /></div>
+        <div class="qmacro"><span class="qmacro-label">Fat</span><input class="qmacro-input" type="number" step="0.1" data-macro="fat_g" value="${macros.fat_g}" /></div>
+        <div class="qmacro"><span class="qmacro-label">Sug</span><input class="qmacro-input" type="number" step="0.1" data-macro="sugar_g" value="${sugarVal}" placeholder="—" /></div>
+      </div>
+      ${item.note ? `<div class="qresult-note">${escapeHTML(item.note)}</div>` : ''}
+      <div class="qresult-actions">
+        <label>
+          <input type="checkbox" data-save-lib ${item.source === 'ai' || item.source === 'usda' ? 'checked' : ''} />
+          Save to food library
+        </label>
+        <button class="qresult-remove" data-remove>×</button>
+      </div>
+    `;
+
+    // Wire up edits
+    const qInput = row.querySelector('[data-field="quantity"]');
+    const uInput = row.querySelector('[data-field="unit"]');
+    qInput.addEventListener('input', () => {
+      const newQty = parseFloat(qInput.value);
+      if (!isNaN(newQty) && newQty > 0) {
+        const ratio = newQty / item.original_quantity;
+        item.original_quantity = newQty;
+        // Scale macros from current displayed values
+        row.querySelectorAll('[data-macro]').forEach(input => {
+          const cur = parseFloat(input.value);
+          if (!isNaN(cur)) {
+            const macro = input.dataset.macro;
+            const newVal = cur * ratio;
+            input.value = macro === 'calories' ? Math.round(newVal) : Math.round(newVal * 10) / 10;
+          }
+        });
+        updateParseTotals();
+      }
+    });
+    uInput.addEventListener('input', () => { item.original_unit = uInput.value; });
+
+    row.querySelectorAll('[data-macro]').forEach(input => {
+      input.addEventListener('input', () => {
+        item._user_overrides = item._user_overrides || {};
+        const val = input.value === '' ? null : parseFloat(input.value);
+        item._user_overrides[input.dataset.macro] = val;
+        updateParseTotals();
+      });
+    });
+
+    row.querySelector('[data-save-lib]').addEventListener('change', e => {
+      item._save_to_library = e.target.checked;
+    });
+    // initialize from default-checked state
+    item._save_to_library = row.querySelector('[data-save-lib]').checked;
+
+    row.querySelector('[data-remove]').addEventListener('click', () => {
+      STATE.parsedItems.splice(idx, 1);
+      renderParseResults();
+      updateParseTotals();
+    });
+
+    container.appendChild(row);
+  });
+
+  if (STATE.parsedItems.length === 0) {
+    $('#quicklog-results').classList.add('hidden');
+    $('#quicklog-totals').classList.add('hidden');
+  }
+}
+
+function labelForSource(s) {
+  return { library: 'Library', usda: 'USDA', ai: 'AI · check', failed: 'Failed' }[s] || s;
+}
+
+function computeItemMacros(item) {
+  const base = item.base_macros || {};
+  const servings = item.servings || 1;
+  const m = item._user_overrides || {};
+  const scale = (key) => {
+    if (m[key] !== undefined) return m[key];
+    const v = base[key];
+    return v == null ? null : (v * servings);
+  };
+  const round = (v, p = 0) => v == null ? null : (p > 0 ? Math.round(v * 10) / 10 : Math.round(v));
+  return {
+    calories: round(scale('calories'), 0),
+    protein_g: round(scale('protein_g'), 1),
+    carbs_g: round(scale('carbs_g'), 1),
+    fat_g: round(scale('fat_g'), 1),
+    sugar_g: round(scale('sugar_g'), 1)
+  };
+}
+
+function readItemMacrosFromInputs(rowEl) {
+  const out = {};
+  rowEl.querySelectorAll('[data-macro]').forEach(input => {
+    const key = input.dataset.macro;
+    if (input.value === '') {
+      out[key] = key === 'sugar_g' ? null : 0;
+    } else {
+      out[key] = parseFloat(input.value) || 0;
+    }
+  });
+  return out;
+}
+
+function updateParseTotals() {
+  const container = $('#quicklog-results');
+  let cal = 0, p = 0, sugar = 0, sugarUnknown = false;
+  container.querySelectorAll('.qresult-row').forEach(row => {
+    const m = readItemMacrosFromInputs(row);
+    cal += m.calories || 0;
+    p += m.protein_g || 0;
+    if (m.sugar_g == null) sugarUnknown = true;
+    else sugar += m.sugar_g;
+  });
+  $('#qtotal-cal').textContent = Math.round(cal);
+  $('#qtotal-p').textContent = Math.round(p);
+  $('#qtotal-sugar').textContent = Math.round(sugar);
+  $('#qtotal-sugar-asterisk').classList.toggle('hidden', !sugarUnknown);
+}
+
+async function saveParsedMeal() {
+  const rows = $('#quicklog-results').querySelectorAll('.qresult-row');
+  if (rows.length === 0) return;
+
+  const saveBtn = $('#quicklog-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  try {
+    for (let i = 0; i < rows.length; i++) {
+      const item = STATE.parsedItems[i];
+      const macros = readItemMacrosFromInputs(rows[i]);
+
+      // Optionally save to library
+      let foodId = item.food_id;
+      if (item._save_to_library && !foodId) {
+        // Parse the brand+name from display_name
+        const newFood = {
+          id: DB.uuid(),
+          name: item.original_item.name,
+          brand: item.original_item.brand || null,
+          serving_desc: `${item.original_quantity} ${item.original_unit}${item.original_item.prep ? ' ' + item.original_item.prep : ''}`,
+          calories: macros.calories,
+          protein_g: macros.protein_g,
+          carbs_g: macros.carbs_g,
+          fat_g: macros.fat_g,
+          sugar_g: macros.sugar_g
+        };
+        await Sync.saveFood(newFood);
+        foodId = newFood.id;
+      }
+
+      const meal = {
+        id: DB.uuid(),
+        date: STATE.currentDate,
+        meal_type: STATE.pendingMealType,
+        food_id: foodId,
+        food_name: item.display_name,
+        servings: 1, // already scaled at parse time
+        calories: macros.calories,
+        protein_g: macros.protein_g,
+        carbs_g: macros.carbs_g,
+        fat_g: macros.fat_g,
+        sugar_g: macros.sugar_g
+      };
+      await Sync.saveMeal(meal);
+    }
+
+    hideModal('modal-add');
+    renderToday();
+    showToast(`${rows.length} item${rows.length === 1 ? '' : 's'} logged`);
+  } catch (e) {
+    showToast('Save failed — try again');
+    console.warn(e);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save all to log';
+  }
 }
 
 /* ===== Day note ===== */
@@ -665,15 +948,20 @@ async function renderSettings() {
 
 async function openManageFoods() {
   const all = await DB.all('foods');
-  all.sort((a, b) => a.name.localeCompare(b.name));
+  all.sort((a, b) => {
+    const aLabel = (a.brand ? a.brand + ' ' : '') + a.name;
+    const bLabel = (b.brand ? b.brand + ' ' : '') + b.name;
+    return aLabel.localeCompare(bLabel);
+  });
   const ul = $('#food-manage-list');
   ul.innerHTML = '';
   for (const f of all) {
     const li = document.createElement('li');
     li.className = 'food-row';
+    const label = f.brand ? `<span class="food-brand">${escapeHTML(f.brand)}</span> ${escapeHTML(f.name)}` : escapeHTML(f.name);
     li.innerHTML = `
       <div class="food-row-info">
-        <div class="food-row-name">${escapeHTML(f.name)}</div>
+        <div class="food-row-name">${label}</div>
         <div class="food-row-meta">${escapeHTML(f.serving_desc || '')} · ${f.calories} cal</div>
       </div>
     `;
@@ -689,6 +977,7 @@ async function openEditFood(id) {
     const f = await DB.get('foods', id);
     if (!f) return;
     $('#edit-food-title').textContent = 'Edit food';
+    $('#ef-brand').value = f.brand || '';
     $('#ef-name').value = f.name;
     $('#ef-serving-desc').value = f.serving_desc || '';
     $('#ef-cal').value = f.calories;
@@ -699,7 +988,7 @@ async function openEditFood(id) {
     $('#ef-delete').classList.remove('hidden');
   } else {
     $('#edit-food-title').textContent = 'New food';
-    ['ef-name', 'ef-serving-desc', 'ef-cal', 'ef-protein', 'ef-carbs', 'ef-fat', 'ef-sugar'].forEach(i => $('#' + i).value = '');
+    ['ef-brand', 'ef-name', 'ef-serving-desc', 'ef-cal', 'ef-protein', 'ef-carbs', 'ef-fat', 'ef-sugar'].forEach(i => $('#' + i).value = '');
     $('#ef-delete').classList.add('hidden');
   }
   hideModal('modal-foods');
@@ -714,8 +1003,10 @@ async function saveEditFood() {
     return v === '' ? 0 : (parseFloat(v) || 0);
   };
   const sugarRaw = $('#ef-sugar').value;
+  const brand = $('#ef-brand').value.trim();
   const food = {
     id: STATE.editingFoodId || DB.uuid(),
+    brand: brand || null,
     name,
     serving_desc: $('#ef-serving-desc').value.trim(),
     calories: num('ef-cal'),

@@ -160,6 +160,7 @@ async function maybeSeedFoods() {
   const rows = window.SEED_FOODS.map(f => ({
     id: DB.uuid(),
     name: f.name,
+    brand: f.brand || null,
     serving_desc: f.serving_desc,
     calories: f.calories,
     protein_g: f.protein_g,
