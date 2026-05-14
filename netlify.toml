@@ -4,6 +4,7 @@
 
 [build]
   publish = "."
+  functions = "netlify/functions"
 
 # Cache headers
 [[headers]]

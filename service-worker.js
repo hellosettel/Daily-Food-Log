@@ -9,7 +9,7 @@
    To force update: bump CACHE_VERSION below and redeploy.
    ============================================================ */
 
-const CACHE_VERSION = 'v1.1.1';
+const CACHE_VERSION = 'v2.0.0';
 const STATIC_CACHE = `daily-log-static-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -21,6 +21,7 @@ const APP_SHELL = [
   '/js/db.js',
   '/js/seed.js',
   '/js/sync.js',
+  '/js/parser.js',
   '/js/ui.js',
   '/js/app.js',
   '/icons/icon-192.png',
