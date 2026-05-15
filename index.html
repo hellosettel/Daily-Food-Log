@@ -97,10 +97,11 @@
               <div class="mini-name">Fat</div>
               <div class="mini-value"><span id="fat-current">0</span>g</div>
             </div>
-            <div class="macro-mini sugar-mini">
+            <button class="macro-mini sugar-mini" id="sugar-tap" type="button">
               <div class="mini-name">Sugar <span id="sugar-asterisk" class="asterisk hidden" title="Some logged items had no sugar value">*</span></div>
               <div class="mini-value"><span id="sugar-current">0</span>g</div>
-            </div>
+              <div class="mini-hint">tap for breakdown</div>
+            </button>
           </div>
         </div>
 
@@ -142,6 +143,26 @@
             </div>
             <ul class="meal-items" id="items-snack"></ul>
           </div>
+        </div>
+
+        <!-- Sugar trend -->
+        <div class="sugar-trend-block">
+          <div class="trend-head">
+            <span class="trend-eyebrow">Sugar — past 7 days</span>
+            <span class="trend-arrow" id="sugar-trend-arrow"></span>
+          </div>
+          <div class="trend-numbers">
+            <div class="trend-stat">
+              <div class="trend-label">Today</div>
+              <div class="trend-value" id="sugar-today-val">0g</div>
+            </div>
+            <div class="trend-divider"></div>
+            <div class="trend-stat">
+              <div class="trend-label">7-day avg</div>
+              <div class="trend-value" id="sugar-avg-val">—</div>
+            </div>
+          </div>
+          <div class="trend-footnote" id="sugar-trend-footnote">Logged days only.</div>
         </div>
 
       </div>
@@ -231,8 +252,9 @@
 
         <div class="settings-section">
           <h3 class="settings-h">Data</h3>
-          <button id="export-btn" class="btn-secondary">Export all my data (JSON)</button>
-          <p class="settings-note small">Downloads everything you've logged. Your escape hatch.</p>
+          <button id="export-log-btn" class="btn-secondary full-width">Export my log</button>
+          <p class="settings-note small">Meals, weights, notes, targets — for analysis.</p>
+          <button id="export-all-btn" class="btn-text">Export everything (incl. food library)</button>
         </div>
 
         <div class="settings-section">
@@ -322,7 +344,26 @@
             <div class="totals-row sugar-row">
               <span>Sugar <span id="qtotal-sugar-asterisk" class="asterisk hidden">*</span></span><span><span id="qtotal-sugar">0</span>g</span>
             </div>
-            <button id="quicklog-save" class="btn-primary full-width">Save all to log</button>
+
+            <div class="totals-actions">
+              <button id="quicklog-save" class="btn-primary full-width">Save items to log</button>
+              <button id="quicklog-save-as-meal" class="btn-secondary full-width">Save as meal &amp; log</button>
+            </div>
+
+            <div id="meal-name-prompt" class="meal-name-prompt hidden">
+              <div class="form-row">
+                <label>Meal name</label>
+                <input type="text" id="meal-name-input" placeholder="e.g. Ricotta pasta" autocomplete="off" />
+              </div>
+              <div class="form-row">
+                <label>Brand</label>
+                <input type="text" id="meal-brand-input" value="Settel" autocomplete="off" />
+              </div>
+              <div class="meal-prompt-actions">
+                <button id="meal-prompt-cancel" class="btn-text">Cancel</button>
+                <button id="meal-prompt-confirm" class="btn-primary">Save &amp; log</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -462,6 +503,26 @@
           <button id="ef-delete" class="btn-text danger hidden">Delete</button>
           <button id="ef-save" class="btn-primary">Save</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SUGAR ATTRIBUTION MODAL ===== -->
+  <div id="modal-sugar" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-sugar"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2 id="sugar-attr-title">Sugar breakdown</h2>
+        <button class="modal-close" data-close="modal-sugar">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="sugar-attr-total">
+          <span id="sugar-attr-total-val">0g</span>
+          <span class="sugar-attr-total-label">total</span>
+        </div>
+        <ul class="sugar-attr-list" id="sugar-attr-list"></ul>
+        <p class="sugar-attr-note hidden" id="sugar-attr-note"></p>
       </div>
     </div>
   </div>
