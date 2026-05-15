@@ -137,7 +137,11 @@ function tokenOverlap(a, b) {
 async function findInUSDA(item) {
   // Build a search query — USDA's search is quite forgiving
   const query = item.brand ? `${item.brand} ${item.name}` : item.name;
-  const url = `${USDA_ENDPOINT}?api_key=${USDA_API_KEY}&query=${encodeURIComponent(query)}&pageSize=5&dataType=Foundation,SR%20Legacy,Survey%20(FNDDS)`;
+  // Include Branded data type so we can find brand-specific entries when user gave a brand
+  const dataTypes = item.brand
+    ? 'Branded,Foundation,SR%20Legacy,Survey%20(FNDDS)'
+    : 'Foundation,SR%20Legacy,Survey%20(FNDDS)';
+  const url = `${USDA_ENDPOINT}?api_key=${USDA_API_KEY}&query=${encodeURIComponent(query)}&pageSize=10&dataType=${dataTypes}`;
 
   try {
     const res = await fetch(url);
@@ -145,17 +149,89 @@ async function findInUSDA(item) {
     const data = await res.json();
     if (!data.foods || data.foods.length === 0) return null;
 
-    // Pick the first result; USDA orders by relevance
-    const top = data.foods[0];
-    return parseUSDAFood(top, item);
+    // Score each candidate and pick the best confident match
+    const scored = data.foods.map(f => ({
+      food: f,
+      score: scoreUSDAMatch(f, item)
+    })).filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (scored.length === 0) return null;
+
+    // Require a meaningful score — if best candidate is weak, fall through to AI
+    // Try candidates in score order, skipping any that fail to parse
+    for (const { score, food } of scored) {
+      if (score < 2) break;
+      const parsed = parseUSDAFood(food, item);
+      if (parsed) return parsed;
+    }
+    return null;
   } catch (e) {
     console.warn('USDA lookup error:', e);
     return null;
   }
 }
 
+/* Score a USDA candidate against the user's item.
+   - Brand match (when user supplied brand) is essential.
+   - Name token overlap adds confidence.
+   - Penalize wildly-different categories. */
+function scoreUSDAMatch(usdaFood, item) {
+  const desc = (usdaFood.description || '').toLowerCase();
+  const brandOwner = (usdaFood.brandOwner || '').toLowerCase();
+  const brandName = (usdaFood.brandName || '').toLowerCase();
+  const userName = (item.name || '').toLowerCase();
+  const userBrand = (item.brand || '').toLowerCase();
+
+  let score = 0;
+
+  // Hard requirement: if user specified a brand, the USDA item must reference it
+  if (userBrand) {
+    const brandText = brandOwner + ' ' + brandName + ' ' + desc;
+    if (!brandText.includes(userBrand)) {
+      return 0; // strict reject
+    }
+    score += 3;
+  }
+
+  // Name token overlap — count meaningful shared words
+  const userTokens = tokenize(userName);
+  const descTokens = tokenize(desc);
+  let overlap = 0;
+  for (const t of userTokens) {
+    if (descTokens.has(t)) overlap++;
+  }
+  // Require at least one meaningful overlap (so "pasta" doesn't match "sauce")
+  if (overlap === 0 && userBrand === '') return 0;
+  score += overlap * 2;
+
+  // Penalize obvious wrong categories
+  // If user said "sauce" but USDA item doesn't mention sauce/dressing/condiment...
+  const userIsSauce = /sauce|dressing|marinade|condiment/.test(userName);
+  const descIsSauce = /sauce|dressing|marinade|condiment|salsa|ketchup|mayo/.test(desc);
+  if (userIsSauce !== descIsSauce) score -= 2;
+
+  // Cooked/raw mismatches (rough heuristic)
+  if (item.prep === 'cooked' && /raw|uncooked/.test(desc)) score -= 1;
+  if (item.prep === 'raw' && /cooked/.test(desc)) score -= 1;
+
+  return score;
+}
+
+const STOPWORDS = new Set(['the', 'a', 'an', 'of', 'with', 'and', 'or', 'in', 'on']);
+function tokenize(s) {
+  return new Set(
+    s.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(t => t.length > 2 && !STOPWORDS.has(t))
+  );
+}
+
 function parseUSDAFood(usdaFood, originalItem) {
   // USDA nutrients use specific IDs — find by nutrientNumber
+  // For Foundation/SR Legacy/FNDDS: values are per 100g
+  // For Branded: foodNutrients are also per 100g (normalized), but labelNutrients are per serving
   const nutrients = {};
   for (const n of (usdaFood.foodNutrients || [])) {
     const num = n.nutrientNumber || (n.nutrient && n.nutrient.number);
@@ -165,25 +241,37 @@ function parseUSDAFood(usdaFood, originalItem) {
     }
   }
 
-  // USDA always returns "per 100g" for Foundation / SR Legacy
   // Standard nutrient numbers:
   //   208 - Energy (kcal)
   //   203 - Protein
   //   204 - Total fat
   //   205 - Carbs
   //   269 - Total sugars
-  const per100g = {
-    calories: nutrients['208'] || 0,
-    protein_g: nutrients['203'] || 0,
-    fat_g: nutrients['204'] || 0,
-    carbs_g: nutrients['205'] || 0,
-    sugar_g: nutrients['269'] != null ? nutrients['269'] : null
+  // Some Branded entries also use 1008/1003/1004/1005/2000 — fall back if needed
+  const getNutrient = (...keys) => {
+    for (const k of keys) {
+      if (nutrients[k] != null) return nutrients[k];
+    }
+    return null;
   };
+
+  const per100g = {
+    calories: getNutrient('208', '1008') || 0,
+    protein_g: getNutrient('203', '1003') || 0,
+    fat_g: getNutrient('204', '1004') || 0,
+    carbs_g: getNutrient('205', '1005') || 0,
+    sugar_g: getNutrient('269', '2000')
+  };
+
+  // Sanity: if calories are 0 but other values aren't, the data is in a weird state
+  if (per100g.calories === 0 && per100g.protein_g === 0 && per100g.carbs_g === 0 && per100g.fat_g === 0) {
+    return null;
+  }
 
   return {
     source: 'usda',
     name: usdaFood.description || originalItem.name,
-    brand: usdaFood.brandOwner || null,
+    brand: usdaFood.brandOwner || usdaFood.brandName || null,
     fdc_id: usdaFood.fdcId,
     per100g
   };
