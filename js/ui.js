@@ -134,6 +134,148 @@ async function renderToday() {
     const note = await DB.get('notes', [user.id, date]);
     $('#day-note').value = note?.text || '';
   }
+
+  // Sugar trend (today + 7-day avg)
+  await renderSugarTrend(date);
+}
+
+async function renderSugarTrend(currentDate) {
+  const user = Sync.currentUser();
+  if (!user) return;
+
+  // Collect last 7 days of sugar totals from logged days
+  const sugarByDate = new Map();
+  const allMeals = await DB.allByIndex('meals', 'by_user', user.id);
+
+  const baseDate = DB.parseYMD(currentDate);
+  const last7 = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() - i);
+    last7.push(DB.ymd(d));
+  }
+
+  for (const ds of last7) {
+    const meals = allMeals.filter(m => m.date === ds);
+    if (meals.length === 0) continue; // unlogged days excluded
+    let total = 0;
+    let hadKnown = false;
+    for (const m of meals) {
+      if (m.sugar_g == null) continue;
+      total += m.sugar_g * (m.servings || 1);
+      hadKnown = true;
+    }
+    // Only include days with at least one known sugar value
+    if (hadKnown || meals.length > 0) {
+      sugarByDate.set(ds, total);
+    }
+  }
+
+  // Today's value (separate read so it's accurate even if today has zero known sugar)
+  const todayMeals = allMeals.filter(m => m.date === currentDate);
+  let todayTotal = 0;
+  for (const m of todayMeals) {
+    if (m.sugar_g == null) continue;
+    todayTotal += m.sugar_g * (m.servings || 1);
+  }
+  $('#sugar-today-val').textContent = `${Math.round(todayTotal)}g`;
+
+  // Compute average across logged days, excluding today (so today vs. recent baseline)
+  const past = [...sugarByDate.entries()].filter(([d]) => d !== currentDate);
+  const arrowEl = $('#sugar-trend-arrow');
+  const footnoteEl = $('#sugar-trend-footnote');
+
+  if (past.length === 0) {
+    $('#sugar-avg-val').textContent = '—';
+    arrowEl.innerHTML = '';
+    arrowEl.className = 'trend-arrow';
+    footnoteEl.textContent = 'Not enough history yet.';
+    return;
+  }
+
+  const avg = past.reduce((s, [, v]) => s + v, 0) / past.length;
+  $('#sugar-avg-val').textContent = `${Math.round(avg)}g`;
+
+  // Trend arrow: today vs avg
+  const isToday = currentDate === DB.todayLocalDate();
+  if (isToday && todayTotal > 0) {
+    const delta = todayTotal - avg;
+    const pct = avg > 0 ? Math.abs(delta) / avg : 0;
+    if (pct < 0.10) {
+      arrowEl.innerHTML = '<span class="arrow-symbol">→</span> in line with average';
+      arrowEl.className = 'trend-arrow flat';
+    } else if (delta > 0) {
+      arrowEl.innerHTML = '<span class="arrow-symbol">↑</span> above average';
+      arrowEl.className = 'trend-arrow up';
+    } else {
+      arrowEl.innerHTML = '<span class="arrow-symbol">↓</span> below average';
+      arrowEl.className = 'trend-arrow down';
+    }
+  } else {
+    arrowEl.innerHTML = '';
+    arrowEl.className = 'trend-arrow';
+  }
+
+  footnoteEl.textContent = `Average based on ${past.length} logged ${past.length === 1 ? 'day' : 'days'}.`;
+}
+
+async function openSugarAttribution(date) {
+  const user = Sync.currentUser();
+  if (!user) return;
+  const meals = (await DB.allByIndex('meals', 'by_date', date)).filter(m => m.user_id === user.id);
+
+  // Build sorted list of contributors
+  const contributors = meals.map(m => ({
+    name: m.food_name,
+    sugar: m.sugar_g == null ? null : m.sugar_g * (m.servings || 1),
+    meal_type: m.meal_type
+  }));
+
+  // Separate known from unknown
+  const known = contributors.filter(c => c.sugar != null && c.sugar > 0);
+  known.sort((a, b) => b.sugar - a.sugar);
+  const unknownCount = contributors.filter(c => c.sugar == null).length;
+  const totalKnown = known.reduce((s, c) => s + c.sugar, 0);
+
+  // Title — context for which day
+  const todayStr = DB.todayLocalDate();
+  let titleText = 'Sugar — Today';
+  if (date !== todayStr) {
+    const d = DB.parseYMD(date);
+    titleText = 'Sugar — ' + d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  $('#sugar-attr-title').textContent = titleText;
+  $('#sugar-attr-total-val').textContent = `${Math.round(totalKnown)}g${unknownCount > 0 ? '*' : ''}`;
+
+  // Build list
+  const list = $('#sugar-attr-list');
+  list.innerHTML = '';
+
+  const max = known[0]?.sugar || 1;
+  for (const c of known) {
+    const li = document.createElement('li');
+    li.className = 'sugar-attr-row';
+    const pct = (c.sugar / max) * 100;
+    li.innerHTML = `
+      <div class="sugar-attr-info">
+        <div class="sugar-attr-name">${escapeHTML(c.name)}</div>
+        <div class="sugar-attr-meta">${capitalize(c.meal_type)}</div>
+        <div class="sugar-attr-bar"><div class="sugar-attr-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="sugar-attr-val">${Math.round(c.sugar * 10) / 10}g</div>
+    `;
+    list.appendChild(li);
+  }
+
+  const noteEl = $('#sugar-attr-note');
+  if (unknownCount > 0) {
+    noteEl.textContent = `${unknownCount} logged item${unknownCount === 1 ? '' : 's'} had no sugar value. Actual total may be higher.`;
+    noteEl.classList.remove('hidden');
+  } else {
+    noteEl.classList.add('hidden');
+  }
+
+  showModal('modal-sugar');
 }
 
 function renderMealItem(m) {
@@ -182,6 +324,9 @@ function escapeHTML(s) {
 function bindDayNav() {
   $('#day-prev').addEventListener('click', () => shiftDay(-1));
   $('#day-next').addEventListener('click', () => shiftDay(1));
+
+  // Sugar attribution
+  $('#sugar-tap').addEventListener('click', () => openSugarAttribution(STATE.currentDate));
 
   // Swipe to change day
   let touchStartX = 0;
@@ -235,6 +380,9 @@ function bindAddFlow() {
   // Quick log (parser)
   $('#quicklog-parse').addEventListener('click', runParse);
   $('#quicklog-save').addEventListener('click', saveParsedMeal);
+  $('#quicklog-save-as-meal').addEventListener('click', showMealNamePrompt);
+  $('#meal-prompt-cancel').addEventListener('click', hideMealNamePrompt);
+  $('#meal-prompt-confirm').addEventListener('click', confirmSaveAsMeal);
 
   // Close handlers
   $$('[data-close]').forEach(el => {
@@ -262,6 +410,7 @@ async function openAddModal(mealType) {
   $('#quicklog-results').classList.add('hidden');
   $('#quicklog-results').innerHTML = '';
   $('#quicklog-totals').classList.add('hidden');
+  $('#meal-name-prompt').classList.add('hidden');
   STATE.parsedItems = [];
 
   await renderFavorites();
@@ -680,7 +829,117 @@ async function saveParsedMeal() {
     console.warn(e);
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Save all to log';
+    saveBtn.textContent = 'Save items to log';
+  }
+}
+
+/* ===== Save as meal & log ===== */
+
+function showMealNamePrompt() {
+  if (STATE.parsedItems.length === 0) {
+    showToast('Nothing to save yet');
+    return;
+  }
+  $('#meal-name-input').value = '';
+  $('#meal-brand-input').value = 'Settel';
+  $('#meal-name-prompt').classList.remove('hidden');
+  setTimeout(() => $('#meal-name-input').focus(), 100);
+}
+
+function hideMealNamePrompt() {
+  $('#meal-name-prompt').classList.add('hidden');
+}
+
+async function confirmSaveAsMeal() {
+  const mealName = $('#meal-name-input').value.trim();
+  const mealBrand = $('#meal-brand-input').value.trim();
+  if (!mealName) {
+    showToast('Name your meal first');
+    $('#meal-name-input').focus();
+    return;
+  }
+
+  const rows = $('#quicklog-results').querySelectorAll('.qresult-row');
+  if (rows.length === 0) return;
+
+  const btn = $('#meal-prompt-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    // Sum macros across all parsed rows
+    let totals = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, sugar_g: 0 };
+    let sugarUnknown = false;
+    const breakdownParts = [];
+
+    rows.forEach((row, idx) => {
+      const m = readItemMacrosFromInputs(row);
+      totals.calories += m.calories || 0;
+      totals.protein_g += m.protein_g || 0;
+      totals.carbs_g += m.carbs_g || 0;
+      totals.fat_g += m.fat_g || 0;
+      if (m.sugar_g == null) sugarUnknown = true;
+      else totals.sugar_g += m.sugar_g;
+
+      const item = STATE.parsedItems[idx];
+      if (item) {
+        const qty = item.original_quantity;
+        const unit = item.original_unit;
+        const nm = item.original_item.brand
+          ? `${item.original_item.brand} ${item.original_item.name}`
+          : item.original_item.name;
+        breakdownParts.push(`${qty}${unit} ${nm}`);
+      }
+    });
+
+    // Round
+    totals.calories = Math.round(totals.calories);
+    totals.protein_g = Math.round(totals.protein_g * 10) / 10;
+    totals.carbs_g = Math.round(totals.carbs_g * 10) / 10;
+    totals.fat_g = Math.round(totals.fat_g * 10) / 10;
+    const finalSugar = sugarUnknown ? null : Math.round(totals.sugar_g * 10) / 10;
+
+    // Create the new food (the meal as a single library item)
+    const newMeal = {
+      id: DB.uuid(),
+      brand: mealBrand || null,
+      name: mealName,
+      serving_desc: breakdownParts.join(', '),
+      calories: totals.calories,
+      protein_g: totals.protein_g,
+      carbs_g: totals.carbs_g,
+      fat_g: totals.fat_g,
+      sugar_g: finalSugar
+    };
+    await Sync.saveFood(newMeal);
+
+    // Log it as one entry under the current meal slot
+    const displayName = mealBrand ? `${mealBrand} ${mealName}` : mealName;
+    const logEntry = {
+      id: DB.uuid(),
+      date: STATE.currentDate,
+      meal_type: STATE.pendingMealType,
+      food_id: newMeal.id,
+      food_name: displayName,
+      servings: 1,
+      calories: totals.calories,
+      protein_g: totals.protein_g,
+      carbs_g: totals.carbs_g,
+      fat_g: totals.fat_g,
+      sugar_g: finalSugar
+    };
+    await Sync.saveMeal(logEntry);
+
+    hideMealNamePrompt();
+    hideModal('modal-add');
+    renderToday();
+    showToast(`Saved & logged: ${displayName}`);
+  } catch (e) {
+    showToast('Save failed — try again');
+    console.warn(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save & log';
   }
 }
 
@@ -928,7 +1187,8 @@ function bindSettings() {
   $('#ef-save').addEventListener('click', saveEditFood);
   $('#ef-delete').addEventListener('click', deleteEditFood);
 
-  $('#export-btn').addEventListener('click', exportData);
+  $('#export-log-btn').addEventListener('click', exportLog);
+  $('#export-all-btn').addEventListener('click', exportAll);
   $('#signout-btn').addEventListener('click', async () => {
     await Sync.signOut();
     showToast('Signed out');
@@ -1032,23 +1292,41 @@ async function deleteEditFood() {
   openManageFoods();
 }
 
-async function exportData() {
+async function exportLog() {
+  await exportData(false);
+}
+
+async function exportAll() {
+  await exportData(true);
+}
+
+async function exportData(includeFoods) {
   const user = Sync.currentUser();
   if (!user) return;
   const meals = (await DB.all('meals')).filter(m => m.user_id === user.id);
   const weights = (await DB.all('weights')).filter(w => w.user_id === user.id);
   const notes = (await DB.all('notes')).filter(n => n.user_id === user.id);
   const targets = await DB.get('targets', user.id);
-  const foods = await DB.all('foods');
-  const blob = new Blob([JSON.stringify({
+
+  const payload = {
     exported_at: new Date().toISOString(),
     user_email: user.email,
-    targets, meals, weights, notes, foods
-  }, null, 2)], { type: 'application/json' });
+    export_kind: includeFoods ? 'full' : 'log',
+    targets,
+    meals,
+    weights,
+    notes
+  };
+  if (includeFoods) {
+    payload.foods = await DB.all('foods');
+  }
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `daily-log-export-${DB.todayLocalDate()}.json`;
+  const kind = includeFoods ? 'full' : 'log';
+  a.download = `daily-log-${kind}-${DB.todayLocalDate()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
