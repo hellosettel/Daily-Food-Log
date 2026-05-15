@@ -414,9 +414,121 @@ ul { list-style: none; padding: 0; margin: 0; }
   position: relative;
 }
 
+button.sugar-mini {
+  background: var(--bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.1s ease;
+  font-family: inherit;
+}
+button.sugar-mini:active {
+  background: var(--bg-deep);
+  transform: scale(0.96);
+}
+.mini-hint {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--ink-quiet);
+  text-transform: uppercase;
+  font-family: var(--sans);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
 .asterisk {
   color: var(--accent);
   font-weight: 700;
+}
+
+/* ============================================================
+   Sugar trend block (bottom of Today view)
+   ============================================================ */
+
+.sugar-trend-block {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule-soft);
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-top: 24px;
+}
+
+.trend-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.trend-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-quiet);
+}
+
+.trend-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.trend-arrow.up    { color: var(--accent); }
+.trend-arrow.down  { color: var(--good); }
+.trend-arrow.flat  { color: var(--ink-quiet); }
+.trend-arrow .arrow-symbol {
+  font-size: 14px;
+  font-style: normal;
+}
+
+.trend-numbers {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-bottom: 8px;
+}
+.trend-stat {
+  text-align: center;
+  flex: 1;
+}
+.trend-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-quiet);
+  margin-bottom: 4px;
+}
+.trend-value {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.trend-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--rule);
+}
+
+.trend-footnote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-quiet);
+  text-align: center;
+  margin-top: 4px;
 }
 
 /* ============================================================
@@ -1244,6 +1356,137 @@ ul { list-style: none; padding: 0; margin: 0; }
 
 .quicklog-totals .btn-primary {
   margin-top: 14px;
+}
+
+.totals-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.totals-actions .btn-primary,
+.totals-actions .btn-secondary {
+  margin-top: 0;
+}
+
+.meal-name-prompt {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+.meal-prompt-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.meal-prompt-actions .btn-primary {
+  flex: 1;
+  margin-top: 0;
+}
+
+/* ============================================================
+   Sugar attribution modal
+   ============================================================ */
+
+.sugar-attr-total {
+  text-align: center;
+  margin-bottom: 18px;
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule-soft);
+  border-radius: 12px;
+}
+.sugar-attr-total #sugar-attr-total-val {
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  display: block;
+  line-height: 1;
+}
+.sugar-attr-total-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-quiet);
+  margin-top: 4px;
+  display: block;
+}
+
+.sugar-attr-list {
+  border: 1px solid var(--rule-soft);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.sugar-attr-list:empty::before {
+  content: 'No sugar logged for this day.';
+  display: block;
+  text-align: center;
+  padding: 20px;
+  color: var(--ink-quiet);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+}
+
+.sugar-attr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule-soft);
+  gap: 12px;
+}
+.sugar-attr-row:last-child { border-bottom: none; }
+
+.sugar-attr-info { flex: 1; min-width: 0; }
+.sugar-attr-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sugar-attr-meta {
+  font-size: 11px;
+  color: var(--ink-quiet);
+  margin-top: 2px;
+}
+.sugar-attr-val {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: right;
+  white-space: nowrap;
+}
+.sugar-attr-bar {
+  height: 4px;
+  background: var(--bg-deep);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.sugar-attr-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.sugar-attr-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-family: var(--serif);
+  font-style: italic;
+  text-align: center;
+  line-height: 1.5;
 }
 
 #food-search {
