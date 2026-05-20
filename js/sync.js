@@ -160,14 +160,20 @@ async function _checkAndCreateHousehold() {
   if (!sb || !_user) return false;
 
   try {
-    const { data: membership } = await sb
+    const { data: memberships, error } = await sb
       .from('household_members')
       .select('household_id')
       .eq('user_id', _user.id)
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
-    if (!membership) {
+    // Critical: do NOT create a new household on error — could be an RLS
+    // failure misread as "no membership", which spawns duplicate households.
+    if (error) {
+      console.warn('Membership check error, skipping household auto-create:', error);
+      return false;
+    }
+
+    if (!memberships || memberships.length === 0) {
       await _createSoloHousehold();
       return true; // new user
     }
@@ -214,12 +220,23 @@ async function pullHousehold() {
   const sb = getClient();
   if (!sb || !_user) return;
 
-  const { data: membership } = await sb
+  // Pick the earliest membership. .maybeSingle() errors out when there
+  // are multiple rows (which can happen if a user accumulated duplicate
+  // memberships during a broken-sync period); .limit(1) + array indexing
+  // is robust to that case.
+  const { data: memberships, error: memErr } = await sb
     .from('household_members')
     .select('household_id, role, joined_at')
     .eq('user_id', _user.id)
-    .maybeSingle();
+    .order('joined_at', { ascending: true })
+    .limit(1);
 
+  if (memErr) {
+    console.warn('pullHousehold membership lookup failed:', memErr);
+    return;
+  }
+
+  const membership = memberships?.[0];
   if (!membership) {
     _currentHousehold = null;
     return;
