@@ -236,9 +236,30 @@ async function pullHousehold() {
     .select('user_id, role, joined_at')
     .eq('household_id', membership.household_id);
 
+  // Fetch profile info for each member (email, display_name)
+  const memberList = members || [];
+  const userIds = memberList.map(m => m.user_id);
+  let profileMap = new Map();
+  if (userIds.length > 0) {
+    const { data: profiles } = await sb
+      .from('profiles')
+      .select('id, email, display_name')
+      .in('id', userIds);
+    profileMap = new Map((profiles || []).map(p => [p.id, p]));
+  }
+
+  const enrichedMembers = memberList.map(m => {
+    const p = profileMap.get(m.user_id);
+    return {
+      ...m,
+      email: p?.email || null,
+      display_name: p?.display_name || null
+    };
+  });
+
   _currentHousehold = {
     ...household,
-    members: members || [],
+    members: enrichedMembers,
     myRole: membership.role
   };
 
