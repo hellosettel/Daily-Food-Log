@@ -1178,9 +1178,9 @@ function drawWeightChart(svg, points) {
    ============================================================ */
 
 function bindHousehold() {
-  $('#household-manage-btn').addEventListener('click', openHouseholdModal);
+  $('#household-manage-btn')?.addEventListener('click', openHouseholdModal);
 
-  $('#hh-name-save').addEventListener('click', async () => {
+  $('#hh-name-save')?.addEventListener('click', async () => {
     const name = $('#hh-name-input').value.trim();
     if (!name) { showToast('Name cannot be empty'); return; }
     try {
@@ -1192,7 +1192,7 @@ function bindHousehold() {
     }
   });
 
-  $('#hh-invite-btn').addEventListener('click', async () => {
+  $('#hh-invite-btn')?.addEventListener('click', async () => {
     const btn = $('#hh-invite-btn');
     btn.disabled = true;
     btn.textContent = 'Generating…';
@@ -1209,12 +1209,12 @@ function bindHousehold() {
     }
   });
 
-  $('#hh-invite-copy').addEventListener('click', () => {
+  $('#hh-invite-copy')?.addEventListener('click', () => {
     const code = $('#hh-invite-code').textContent;
     navigator.clipboard?.writeText(code).then(() => showToast('Code copied'));
   });
 
-  $('#hh-leave-btn').addEventListener('click', async () => {
+  $('#hh-leave-btn')?.addEventListener('click', async () => {
     const hh = Sync.currentHousehold();
     const memberCount = hh?.members?.length || 1;
     const msg = memberCount > 1
@@ -1231,20 +1231,15 @@ function bindHousehold() {
     }
   });
 
-  $('#hh-join-different-btn').addEventListener('click', () => {
+  $('#hh-join-different-btn')?.addEventListener('click', () => {
     hideModal('modal-household');
     openJoinHouseholdModal();
   });
 
-  // Join flow
-  $('#join-code-input').addEventListener('input', _onJoinCodeInput);
-  $('#join-confirm-btn').addEventListener('click', _onJoinConfirm);
+  $('#join-code-input')?.addEventListener('input', _onJoinCodeInput);
+  $('#join-confirm-btn')?.addEventListener('click', _onJoinConfirm);
 
-  // Welcome modal
-  const welcomeBtn = $('#welcome-dismiss-btn');
-  if (welcomeBtn) {
-    welcomeBtn.addEventListener('click', () => hideModal('modal-welcome'));
-  }
+  $('#welcome-dismiss-btn')?.addEventListener('click', () => hideModal('modal-welcome'));
 }
 
 let _inviteCountdownTimer = null;
