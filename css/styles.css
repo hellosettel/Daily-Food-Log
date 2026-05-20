@@ -1742,6 +1742,253 @@ button.sugar-mini:active {
 }
 
 /* ============================================================
+   System food visual marker (Settel-published)
+   ============================================================ */
+
+.food-row-system {
+  border-left: 3px solid var(--accent-soft);
+  background: linear-gradient(to right, rgba(248, 220, 205, 0.35) 0%, transparent 60%);
+}
+.food-row-system .food-brand {
+  color: var(--accent);
+}
+
+/* ============================================================
+   Household settings preview
+   ============================================================ */
+
+.household-info {
+  margin-bottom: 14px;
+}
+
+.household-name-display {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.household-members-preview {
+  font-size: 13px;
+  color: var(--ink-quiet);
+}
+
+/* ============================================================
+   Household modal
+   ============================================================ */
+
+.hh-name-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.hh-name-input {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: var(--serif);
+  font-style: italic;
+}
+.hh-name-input:focus {
+  border-color: var(--ink);
+  outline: none;
+}
+
+.manage-section-head {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-quiet);
+  margin: 0 0 10px;
+  padding-top: 4px;
+}
+
+.hh-members-list {
+  border: 1px solid var(--rule-soft);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.hh-member-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule-soft);
+  gap: 12px;
+}
+.hh-member-row:last-child { border-bottom: none; }
+
+.member-info { flex: 1; min-width: 0; }
+
+.member-label {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.member-role-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--bg-deep);
+  color: var(--ink-quiet);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.member-remove-btn {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ===== Invite code display ===== */
+
+.hh-invite-display {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule-soft);
+  border-radius: 14px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.invite-code-value {
+  font-family: var(--serif);
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--ink);
+  line-height: 1;
+  margin-bottom: 14px;
+}
+
+.invite-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.invite-countdown {
+  font-size: 13px;
+  color: var(--ink-quiet);
+  font-family: var(--serif);
+  font-style: italic;
+}
+
+.hh-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* ============================================================
+   Join household modal
+   ============================================================ */
+
+.join-code-input {
+  width: 100%;
+  padding: 16px 18px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+.join-code-input:focus { border-color: var(--ink); outline: none; }
+
+.join-code-status {
+  font-size: 13px;
+  color: var(--ink-quiet);
+  font-family: var(--serif);
+  font-style: italic;
+  min-height: 20px;
+  margin-top: 8px;
+}
+.join-code-status.error { color: var(--accent); font-style: normal; }
+
+.join-confirm-box {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule-soft);
+  border-radius: 12px;
+}
+
+.join-confirm-text {
+  font-size: 15px;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+  line-height: 1.45;
+}
+
+/* ============================================================
+   Welcome modal
+   ============================================================ */
+
+.welcome-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 20px;
+}
+
+/* ============================================================
+   Admin — food edit section
+   ============================================================ */
+
+.ef-admin-section {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.ef-admin-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.ef-admin-label input[type="checkbox"] {
+  -webkit-appearance: auto;
+  appearance: auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* ============================================================
    Responsive — wider screens get a touch more breathing room
    ============================================================ */
 

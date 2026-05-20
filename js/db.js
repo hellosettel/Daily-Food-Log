@@ -16,7 +16,7 @@
    ============================================================ */
 
 const DB_NAME = 'daily-log';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let _db = null;
 
@@ -61,6 +61,10 @@ function openDB() {
 
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' });
+      }
+
+      if (!db.objectStoreNames.contains('households')) {
+        db.createObjectStore('households', { keyPath: 'household_id' });
       }
     };
 

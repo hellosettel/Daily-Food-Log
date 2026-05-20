@@ -245,8 +245,17 @@
         </div>
 
         <div class="settings-section">
+          <h3 class="settings-h">Household</h3>
+          <div class="household-info">
+            <div class="household-name-display" id="household-name">—</div>
+            <div class="household-members-preview" id="household-members-preview"></div>
+          </div>
+          <button id="household-manage-btn" class="btn-secondary full-width">Manage household</button>
+        </div>
+
+        <div class="settings-section">
           <h3 class="settings-h">Food Library</h3>
-          <p class="settings-note">Shared with anyone using this app. Add foods you eat regularly.</p>
+          <p class="settings-note">Your household's private food library. Add foods you eat regularly.</p>
           <button id="manage-foods-btn" class="btn-secondary">Manage foods</button>
         </div>
 
@@ -451,6 +460,10 @@
       <div class="modal-body">
         <button id="add-food-btn" class="btn-secondary full-width">+ New food</button>
         <ul class="food-manage-list" id="food-manage-list"></ul>
+        <div id="admin-system-section" class="hidden">
+          <div class="manage-section-head">System foods (Settel)</div>
+          <ul class="food-manage-list" id="system-food-manage-list"></ul>
+        </div>
       </div>
     </div>
   </div>
@@ -499,6 +512,12 @@
             <input type="number" id="ef-sugar" inputmode="numeric" />
           </div>
         </div>
+        <div id="ef-admin-section" class="ef-admin-section hidden">
+          <label class="ef-admin-label">
+            <input type="checkbox" id="ef-publish-system" />
+            Publish as Settel system food
+          </label>
+        </div>
         <div class="ef-actions">
           <button id="ef-delete" class="btn-text danger hidden">Delete</button>
           <button id="ef-save" class="btn-primary">Save</button>
@@ -523,6 +542,81 @@
         </div>
         <ul class="sugar-attr-list" id="sugar-attr-list"></ul>
         <p class="sugar-attr-note hidden" id="sugar-attr-note"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HOUSEHOLD MODAL ===== -->
+  <div id="modal-household" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-household"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2>Household</h2>
+        <button class="modal-close" data-close="modal-household">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="hh-name-row">
+          <input type="text" id="hh-name-input" class="hh-name-input" placeholder="Household name" />
+          <button id="hh-name-save" class="btn-secondary">Rename</button>
+        </div>
+
+        <div class="manage-section-head">Members</div>
+        <ul id="hh-members-list" class="hh-members-list"></ul>
+
+        <button id="hh-invite-btn" class="btn-secondary full-width">Invite member</button>
+        <div id="hh-invite-display" class="hh-invite-display hidden">
+          <div class="invite-code-value" id="hh-invite-code">——————</div>
+          <div class="invite-meta">
+            <span class="invite-countdown" id="hh-invite-countdown"></span>
+            <button id="hh-invite-copy" class="btn-secondary">Copy code</button>
+          </div>
+          <p class="settings-note">Share this code. It expires in 1 hour.</p>
+        </div>
+
+        <div class="hh-footer-actions">
+          <button id="hh-join-different-btn" class="btn-text">Join a different household</button>
+          <button id="hh-leave-btn" class="btn-text danger">Leave household</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== JOIN HOUSEHOLD MODAL ===== -->
+  <div id="modal-join-household" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-join-household"></div>
+    <div class="modal-sheet small">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2>Join household</h2>
+        <button class="modal-close" data-close="modal-join-household">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Invite code</label>
+          <input type="text" id="join-code-input" inputmode="numeric" maxlength="6"
+                 autocomplete="one-time-code" placeholder="000000" class="join-code-input" />
+        </div>
+        <p id="join-code-status" class="join-code-status"></p>
+        <div id="join-confirm-box" class="join-confirm-box hidden">
+          <p id="join-confirm-text" class="join-confirm-text"></p>
+          <button id="join-confirm-btn" class="btn-primary full-width">Join household</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== WELCOME MODAL ===== -->
+  <div id="modal-welcome" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-sheet small">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2>Welcome to Daily Log</h2>
+      </div>
+      <div class="modal-body">
+        <p class="welcome-text">Log meals as you eat them. Your food library is private to your household. To share with a partner or family member, go to <strong>More → Household → Invite member</strong>.</p>
+        <button id="welcome-dismiss-btn" class="btn-primary full-width">Got it</button>
       </div>
     </div>
   </div>
