@@ -482,6 +482,7 @@ async function renderFoodList() {
   for (const f of filtered) {
     const li = document.createElement('li');
     li.className = 'food-row';
+    if (f.kind === 'system') li.classList.add('food-row-system');
     const label = f.brand ? `<span class="food-brand">${escapeHTML(f.brand)}</span> ${escapeHTML(f.name)}` : escapeHTML(f.name);
     li.innerHTML = `
       <div class="food-row-info">
@@ -1172,6 +1173,214 @@ function drawWeightChart(svg, points) {
    SETTINGS VIEW
    ============================================================ */
 
+/* ============================================================
+   HOUSEHOLD UI
+   ============================================================ */
+
+function bindHousehold() {
+  $('#household-manage-btn').addEventListener('click', openHouseholdModal);
+
+  $('#hh-name-save').addEventListener('click', async () => {
+    const name = $('#hh-name-input').value.trim();
+    if (!name) { showToast('Name cannot be empty'); return; }
+    try {
+      await Sync.renameHousehold(name);
+      $('#household-name').textContent = name;
+      showToast('Renamed');
+    } catch (e) {
+      showToast('Rename failed');
+    }
+  });
+
+  $('#hh-invite-btn').addEventListener('click', async () => {
+    const btn = $('#hh-invite-btn');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      const { code, expires_at } = await Sync.createHouseholdInvite();
+      $('#hh-invite-code').textContent = code;
+      $('#hh-invite-display').classList.remove('hidden');
+      _startInviteCountdown(new Date(expires_at));
+    } catch (e) {
+      showToast('Failed to generate invite');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Invite member';
+    }
+  });
+
+  $('#hh-invite-copy').addEventListener('click', () => {
+    const code = $('#hh-invite-code').textContent;
+    navigator.clipboard?.writeText(code).then(() => showToast('Code copied'));
+  });
+
+  $('#hh-leave-btn').addEventListener('click', async () => {
+    const hh = Sync.currentHousehold();
+    const memberCount = hh?.members?.length || 1;
+    const msg = memberCount > 1
+      ? 'Leave this household? You\'ll be moved to a new solo household.'
+      : 'You\'re the only member. Leaving will delete the household.';
+    if (!confirm(msg)) return;
+    try {
+      await Sync.leaveHousehold();
+      hideModal('modal-household');
+      renderSettings();
+      showToast('Left household');
+    } catch (e) {
+      showToast('Failed to leave: ' + (e.message || 'try again'));
+    }
+  });
+
+  $('#hh-join-different-btn').addEventListener('click', () => {
+    hideModal('modal-household');
+    openJoinHouseholdModal();
+  });
+
+  // Join flow
+  $('#join-code-input').addEventListener('input', _onJoinCodeInput);
+  $('#join-confirm-btn').addEventListener('click', _onJoinConfirm);
+
+  // Welcome modal
+  const welcomeBtn = $('#welcome-dismiss-btn');
+  if (welcomeBtn) {
+    welcomeBtn.addEventListener('click', () => hideModal('modal-welcome'));
+  }
+}
+
+let _inviteCountdownTimer = null;
+
+function _startInviteCountdown(expiresAt) {
+  if (_inviteCountdownTimer) clearInterval(_inviteCountdownTimer);
+  const el = $('#hh-invite-countdown');
+  const update = () => {
+    const secsLeft = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+    const m = Math.floor(secsLeft / 60);
+    const s = secsLeft % 60;
+    el.textContent = `Expires in ${m}:${String(s).padStart(2, '0')}`;
+    if (secsLeft === 0) {
+      clearInterval(_inviteCountdownTimer);
+      el.textContent = 'Expired';
+    }
+  };
+  update();
+  _inviteCountdownTimer = setInterval(update, 1000);
+}
+
+async function openHouseholdModal() {
+  const hh = Sync.currentHousehold();
+  $('#hh-name-input').value = hh?.name || '';
+  $('#hh-invite-display').classList.add('hidden');
+  $('#hh-invite-code').textContent = '——————';
+  if (_inviteCountdownTimer) { clearInterval(_inviteCountdownTimer); _inviteCountdownTimer = null; }
+
+  _renderHouseholdMembers(hh);
+  showModal('modal-household');
+}
+
+function _renderHouseholdMembers(hh) {
+  const ul = $('#hh-members-list');
+  ul.innerHTML = '';
+  if (!hh) return;
+
+  const me = Sync.currentUser();
+  const isOwner = hh.myRole === 'owner';
+
+  for (const m of (hh.members || [])) {
+    const li = document.createElement('li');
+    li.className = 'hh-member-row';
+    const isSelf = m.user_id === me?.id;
+    const label = isSelf ? (me.email + ' (you)') : `Member ···${m.user_id.slice(-8)}`;
+    const roleTag = m.role === 'owner' ? '<span class="member-role-tag">owner</span>' : '';
+
+    li.innerHTML = `
+      <div class="member-info">
+        <div class="member-label">${escapeHTML(label)} ${roleTag}</div>
+      </div>
+    `;
+
+    if (isOwner && !isSelf) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn-text danger member-remove-btn';
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', async () => {
+        if (!confirm('Remove this member from your household?')) return;
+        try {
+          await Sync.removeMember(m.user_id);
+          const updated = Sync.currentHousehold();
+          _renderHouseholdMembers(updated);
+          showToast('Member removed');
+        } catch (e) {
+          showToast('Failed to remove member');
+        }
+      });
+      li.appendChild(removeBtn);
+    }
+    ul.appendChild(li);
+  }
+}
+
+let _joinLookupTimer = null;
+let _joinLookupResult = null;
+
+function openJoinHouseholdModal() {
+  $('#join-code-input').value = '';
+  $('#join-code-status').textContent = '';
+  $('#join-code-status').className = 'join-code-status';
+  $('#join-confirm-box').classList.add('hidden');
+  _joinLookupResult = null;
+  showModal('modal-join-household');
+  setTimeout(() => $('#join-code-input').focus(), 150);
+}
+
+async function _onJoinCodeInput() {
+  const code = $('#join-code-input').value.replace(/\D/g, '').slice(0, 6);
+  $('#join-code-input').value = code;
+
+  const statusEl = $('#join-code-status');
+  $('#join-confirm-box').classList.add('hidden');
+  _joinLookupResult = null;
+
+  if (code.length < 6) {
+    statusEl.textContent = '';
+    return;
+  }
+
+  statusEl.textContent = 'Looking up…';
+  statusEl.className = 'join-code-status';
+
+  try {
+    const result = await Sync.lookupInviteCode(code);
+    _joinLookupResult = result;
+    const memberWord = result.member_count === 1 ? 'member' : 'members';
+    $('#join-confirm-text').textContent =
+      `You're joining "${result.household_name}" (${result.member_count} ${memberWord}). Continue?`;
+    $('#join-confirm-box').classList.remove('hidden');
+    statusEl.textContent = '';
+  } catch (e) {
+    statusEl.textContent = e.message || 'Invalid code.';
+    statusEl.className = 'join-code-status error';
+  }
+}
+
+async function _onJoinConfirm() {
+  if (!_joinLookupResult) return;
+  const code = $('#join-code-input').value;
+  const btn = $('#join-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Joining…';
+  try {
+    await Sync.acceptInvite(code);
+    hideModal('modal-join-household');
+    renderSettings();
+    showToast('Joined household');
+  } catch (e) {
+    showToast(e.message || 'Failed to join — try again');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Join household';
+  }
+}
+
 function bindSettings() {
   $('#targets-save').addEventListener('click', async () => {
     const p = parseInt($('#target-protein').value);
@@ -1204,38 +1413,75 @@ async function renderSettings() {
   $('#target-calories').value = targets.calories;
   const user = Sync.currentUser();
   if (user) $('#settings-user').textContent = user.email;
+
+  const hh = Sync.currentHousehold();
+  $('#household-name').textContent = hh?.name || '—';
+  const members = hh?.members || [];
+  const count = members.length;
+  $('#household-members-preview').textContent =
+    count === 1 ? '1 member (just you)' : `${count} members`;
+}
+
+function _buildFoodRow(f, clickable = true) {
+  const li = document.createElement('li');
+  li.className = 'food-row';
+  if (f.kind === 'system') li.classList.add('food-row-system');
+  const label = f.brand
+    ? `<span class="food-brand">${escapeHTML(f.brand)}</span> ${escapeHTML(f.name)}`
+    : escapeHTML(f.name);
+  li.innerHTML = `
+    <div class="food-row-info">
+      <div class="food-row-name">${label}</div>
+      <div class="food-row-meta">${escapeHTML(f.serving_desc || '')} · ${f.calories} cal</div>
+    </div>
+  `;
+  if (clickable) li.addEventListener('click', () => openEditFood(f.id));
+  return li;
 }
 
 async function openManageFoods() {
   const all = await DB.all('foods');
-  all.sort((a, b) => {
+  const admin = Sync.isAdmin();
+
+  const household = all.filter(f => f.kind !== 'system');
+  const system = all.filter(f => f.kind === 'system');
+
+  const sort = arr => arr.sort((a, b) => {
     const aLabel = (a.brand ? a.brand + ' ' : '') + a.name;
     const bLabel = (b.brand ? b.brand + ' ' : '') + b.name;
     return aLabel.localeCompare(bLabel);
   });
+
   const ul = $('#food-manage-list');
   ul.innerHTML = '';
-  for (const f of all) {
-    const li = document.createElement('li');
-    li.className = 'food-row';
-    const label = f.brand ? `<span class="food-brand">${escapeHTML(f.brand)}</span> ${escapeHTML(f.name)}` : escapeHTML(f.name);
-    li.innerHTML = `
-      <div class="food-row-info">
-        <div class="food-row-name">${label}</div>
-        <div class="food-row-meta">${escapeHTML(f.serving_desc || '')} · ${f.calories} cal</div>
-      </div>
-    `;
-    li.addEventListener('click', () => openEditFood(f.id));
-    ul.appendChild(li);
+  for (const f of sort(household)) ul.appendChild(_buildFoodRow(f));
+
+  // Admin: show system foods section
+  const adminSection = $('#admin-system-section');
+  if (admin) {
+    adminSection.classList.remove('hidden');
+    const sysUl = $('#system-food-manage-list');
+    sysUl.innerHTML = '';
+    for (const f of sort(system)) sysUl.appendChild(_buildFoodRow(f));
+  } else {
+    adminSection.classList.add('hidden');
   }
+
   showModal('modal-foods');
 }
 
 async function openEditFood(id) {
   STATE.editingFoodId = id;
+  const admin = Sync.isAdmin();
+  const adminSection = $('#ef-admin-section');
+
   if (id) {
     const f = await DB.get('foods', id);
     if (!f) return;
+
+    // Non-admins cannot edit system foods
+    if (f.kind === 'system' && !admin) return;
+
     $('#edit-food-title').textContent = 'Edit food';
     $('#ef-brand').value = f.brand || '';
     $('#ef-name').value = f.name;
@@ -1246,10 +1492,24 @@ async function openEditFood(id) {
     $('#ef-fat').value = f.fat_g;
     $('#ef-sugar').value = f.sugar_g == null ? '' : f.sugar_g;
     $('#ef-delete').classList.remove('hidden');
+
+    if (admin) {
+      adminSection.classList.remove('hidden');
+      $('#ef-publish-system').checked = f.kind === 'system';
+    } else {
+      adminSection.classList.add('hidden');
+    }
   } else {
     $('#edit-food-title').textContent = 'New food';
     ['ef-brand', 'ef-name', 'ef-serving-desc', 'ef-cal', 'ef-protein', 'ef-carbs', 'ef-fat', 'ef-sugar'].forEach(i => $('#' + i).value = '');
     $('#ef-delete').classList.add('hidden');
+
+    if (admin) {
+      adminSection.classList.remove('hidden');
+      $('#ef-publish-system').checked = false;
+    } else {
+      adminSection.classList.add('hidden');
+    }
   }
   hideModal('modal-foods');
   showModal('modal-edit-food');
@@ -1264,6 +1524,9 @@ async function saveEditFood() {
   };
   const sugarRaw = $('#ef-sugar').value;
   const brand = $('#ef-brand').value.trim();
+  const admin = Sync.isAdmin();
+  const publishAsSystem = admin && $('#ef-publish-system').checked;
+
   const food = {
     id: STATE.editingFoodId || DB.uuid(),
     brand: brand || null,
@@ -1273,8 +1536,10 @@ async function saveEditFood() {
     protein_g: num('ef-protein'),
     carbs_g: num('ef-carbs'),
     fat_g: num('ef-fat'),
-    sugar_g: sugarRaw === '' ? null : parseFloat(sugarRaw)
+    sugar_g: sugarRaw === '' ? null : parseFloat(sugarRaw),
+    kind: publishAsSystem ? 'system' : 'household'
   };
+
   await Sync.saveFood(food);
   hideModal('modal-edit-food');
   STATE.editingFoodId = null;
@@ -1284,7 +1549,7 @@ async function saveEditFood() {
 
 async function deleteEditFood() {
   if (!STATE.editingFoodId) return;
-  if (!confirm('Delete this food? It will be removed from the shared library.')) return;
+  if (!confirm('Delete this food? It will be removed from the food library.')) return;
   await Sync.deleteFood(STATE.editingFoodId);
   hideModal('modal-edit-food');
   STATE.editingFoodId = null;
@@ -1377,6 +1642,7 @@ async function initUI() {
     bindCalNav();
     bindWeight();
     bindSettings();
+    bindHousehold();
     _uiInitialized = true;
   }
   await renderToday();
