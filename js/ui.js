@@ -1289,7 +1289,12 @@ function _renderHouseholdMembers(hh) {
     const li = document.createElement('li');
     li.className = 'hh-member-row';
     const isSelf = m.user_id === me?.id;
-    const label = isSelf ? (me.email + ' (you)') : `Member ···${m.user_id.slice(-8)}`;
+    let label;
+    if (isSelf) {
+      label = (me.email || m.email || 'You') + ' (you)';
+    } else {
+      label = m.email || m.display_name || `Member ···${m.user_id.slice(-8)}`;
+    }
     const roleTag = m.role === 'owner' ? '<span class="member-role-tag">owner</span>' : '';
 
     li.innerHTML = `
