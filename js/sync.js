@@ -160,14 +160,20 @@ async function _checkAndCreateHousehold() {
   if (!sb || !_user) return false;
 
   try {
-    const { data: membership } = await sb
+    const { data: memberships, error } = await sb
       .from('household_members')
       .select('household_id')
       .eq('user_id', _user.id)
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
-    if (!membership) {
+    // Critical: do NOT create a new household on error — could be an RLS
+    // failure misread as "no membership", which spawns duplicate households.
+    if (error) {
+      console.warn('Membership check error, skipping household auto-create:', error);
+      return false;
+    }
+
+    if (!memberships || memberships.length === 0) {
       await _createSoloHousehold();
       return true; // new user
     }
@@ -214,12 +220,23 @@ async function pullHousehold() {
   const sb = getClient();
   if (!sb || !_user) return;
 
-  const { data: membership } = await sb
+  // Pick the earliest membership. .maybeSingle() errors out when there
+  // are multiple rows (which can happen if a user accumulated duplicate
+  // memberships during a broken-sync period); .limit(1) + array indexing
+  // is robust to that case.
+  const { data: memberships, error: memErr } = await sb
     .from('household_members')
     .select('household_id, role, joined_at')
     .eq('user_id', _user.id)
-    .maybeSingle();
+    .order('joined_at', { ascending: true })
+    .limit(1);
 
+  if (memErr) {
+    console.warn('pullHousehold membership lookup failed:', memErr);
+    return;
+  }
+
+  const membership = memberships?.[0];
   if (!membership) {
     _currentHousehold = null;
     return;
@@ -532,31 +549,19 @@ async function lookupInviteCode(code) {
   const sb = getClient();
   if (!sb) throw new Error('not configured');
 
-  const { data, error } = await sb
-    .from('household_invites')
-    .select('*, households(id, name)')
-    .eq('code', code)
-    .maybeSingle();
-
+  const { data, error } = await sb.rpc('preview_household_invite', { invite_code: code });
   if (error) throw error;
-  if (!data) throw Object.assign(new Error('Invalid code. Check the digits and try again.'), { kind: 'invalid' });
-  if (data.consumed_at) throw Object.assign(new Error('This code has already been used.'), { kind: 'consumed' });
-  if (new Date(data.expires_at) < new Date()) throw Object.assign(new Error('This code has expired. Ask for a new one.'), { kind: 'expired' });
 
-  if (_currentHousehold?.id === data.household_id) {
-    throw Object.assign(new Error('You\'re already a member of this household.'), { kind: 'already_member' });
-  }
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw Object.assign(new Error('Invalid code. Check the digits and try again.'), { kind: 'invalid' });
 
-  const { count } = await sb
-    .from('household_members')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('household_id', data.household_id);
+  if (row.error_code === 'invalid')   throw Object.assign(new Error('Invalid code. Check the digits and try again.'), { kind: 'invalid' });
+  if (row.error_code === 'consumed')  throw Object.assign(new Error('This code has already been used.'), { kind: 'consumed' });
+  if (row.error_code === 'expired')   throw Object.assign(new Error('This code has expired. Ask for a new one.'), { kind: 'expired' });
 
   return {
-    household_id: data.household_id,
-    household_name: data.households?.name || 'Unknown household',
-    member_count: count || 0,
-    expires_at: data.expires_at
+    household_name: row.household_name || 'Unknown household',
+    member_count: Number(row.member_count) || 0
   };
 }
 
@@ -564,34 +569,18 @@ async function acceptInvite(code) {
   const sb = getClient();
   if (!sb || !_user) throw new Error('not signed in');
 
-  const { data: invite, error: inviteErr } = await sb
-    .from('household_invites')
-    .select('*')
-    .eq('code', code)
-    .maybeSingle();
+  const { data, error } = await sb.rpc('redeem_household_invite', { invite_code: code });
+  if (error) throw error;
 
-  if (inviteErr) throw inviteErr;
-  if (!invite) throw new Error('Invalid code. Check the digits and try again.');
-  if (invite.consumed_at) throw new Error('This code has already been used.');
-  if (new Date(invite.expires_at) < new Date()) throw new Error('This code has expired. Ask for a new one.');
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Redemption failed. Try again.');
 
-  const newHouseholdId = invite.household_id;
-
-  // Add to new household first (idempotent via upsert)
-  const { error: joinErr } = await sb.from('household_members').upsert({
-    household_id: newHouseholdId,
-    user_id: _user.id,
-    role: 'member'
-  }, { onConflict: 'household_id,user_id' });
-  if (joinErr) throw joinErr;
-
-  // Mark invite consumed
-  await sb.from('household_invites')
-    .update({ consumed_at: new Date().toISOString() })
-    .eq('code', code);
-
-  // Leave old household (don't create a new one)
-  if (_currentHousehold) await _doLeaveHousehold(false);
+  if (row.error_code === 'invalid')       throw new Error('Invalid code. Check the digits and try again.');
+  if (row.error_code === 'consumed')      throw new Error('This code has already been used.');
+  if (row.error_code === 'expired')       throw new Error('This code has expired. Ask for a new one.');
+  if (row.error_code === 'unauthenticated') throw new Error('Not signed in.');
+  if (row.error_code === 'already_member') throw new Error("You're already a member of this household.");
+  if (row.error_code)                     throw new Error('Failed to join. Try again.');
 
   await pullHousehold();
   await pullFoods();
