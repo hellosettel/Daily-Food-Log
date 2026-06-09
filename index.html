@@ -102,6 +102,10 @@
               <div class="mini-value"><span id="sugar-current">0</span>g</div>
               <div class="mini-hint">tap for breakdown</div>
             </button>
+            <div class="macro-mini sodium-mini">
+              <div class="mini-name">Sodium <span id="sodium-asterisk" class="asterisk hidden" title="Some logged items had no sodium value">*</span></div>
+              <div class="mini-value"><span id="sodium-current">0</span>mg</div>
+            </div>
           </div>
         </div>
 
@@ -442,6 +446,10 @@
             <label>Sugar (g) <span class="hint">— leave blank if unknown</span></label>
             <input type="number" id="custom-sugar" inputmode="numeric" />
           </div>
+          <div class="form-row full-row">
+            <label>Sodium (mg) <span class="hint">— leave blank if unknown</span></label>
+            <input type="number" id="custom-sodium" inputmode="numeric" />
+          </div>
         </div>
         <button id="custom-confirm" class="btn-primary full-width">Add to log</button>
       </div>
@@ -478,6 +486,12 @@
         <button class="modal-close" data-close="modal-edit-food">×</button>
       </div>
       <div class="modal-body">
+        <div class="scan-block">
+          <button id="ef-scan-btn" class="btn-secondary full-width" type="button">
+            📷 Scan nutrition label
+          </button>
+          <p id="ef-scan-status" class="scan-status"></p>
+        </div>
         <div class="form-row">
           <label>Brand <span class="hint">— optional</span></label>
           <input type="text" id="ef-brand" placeholder="e.g. Rao's, Graziano" />
@@ -510,6 +524,10 @@
           <div class="form-row full-row">
             <label>Sugar (g) <span class="hint">— blank if unknown</span></label>
             <input type="number" id="ef-sugar" inputmode="numeric" />
+          </div>
+          <div class="form-row full-row">
+            <label>Sodium (mg) <span class="hint">— blank if unknown</span></label>
+            <input type="number" id="ef-sodium" inputmode="numeric" />
           </div>
         </div>
         <div id="ef-admin-section" class="ef-admin-section hidden">
@@ -635,6 +653,7 @@
   <script src="/js/seed.js"></script>
   <script src="/js/sync.js"></script>
   <script src="/js/parser.js"></script>
+  <script src="/js/label-scanner.js"></script>
   <script src="/js/ui.js"></script>
   <script src="/js/app.js"></script>
 

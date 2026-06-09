@@ -199,6 +199,7 @@ Schema:
   "carbs_g": number,
   "fat_g": number,
   "sugar_g": number,
+  "sodium_mg": number,
   "confidence": "high" | "medium" | "low",
   "notes": "optional brief note if assumptions were made, max 50 chars"
 }
@@ -207,11 +208,12 @@ Rules:
 - Return values for the SPECIFIC quantity given, not per-100g or per-serving.
 - "confidence" should reflect your certainty: "high" for common generic foods, "medium" for variations, "low" for unknown/regional brands.
 - For sugar: only include added + natural sugars. If unknown, use 0 and note it.
+- For sodium: estimate milligrams of sodium for the given quantity. If genuinely unknown, use null.
 - All numeric values must be numbers (not strings).
 - Round to nearest whole number.
 
 Example input: "Graziano sausage, 4 oz"
-Example output: {"calories":320,"protein_g":18,"carbs_g":1,"fat_g":28,"sugar_g":0,"confidence":"low","notes":"estimated; local brand"}`;
+Example output: {"calories":320,"protein_g":18,"carbs_g":1,"fat_g":28,"sugar_g":0,"sodium_mg":820,"confidence":"low","notes":"estimated; local brand"}`;
 
   const response = await callAnthropic({
     apiKey,
@@ -231,6 +233,7 @@ Example output: {"calories":320,"protein_g":18,"carbs_g":1,"fat_g":28,"sugar_g":
     carbs_g: Number(parsed.carbs_g) || 0,
     fat_g: Number(parsed.fat_g) || 0,
     sugar_g: parsed.sugar_g == null ? null : Number(parsed.sugar_g),
+    sodium_mg: parsed.sodium_mg == null ? null : Number(parsed.sodium_mg),
     confidence: parsed.confidence || 'low',
     notes: parsed.notes || null
   };
