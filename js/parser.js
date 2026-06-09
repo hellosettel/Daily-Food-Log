@@ -247,7 +247,8 @@ function parseUSDAFood(usdaFood, originalItem) {
   //   204 - Total fat
   //   205 - Carbs
   //   269 - Total sugars
-  // Some Branded entries also use 1008/1003/1004/1005/2000 — fall back if needed
+  //   307 - Sodium (mg)
+  // Some Branded entries also use 1008/1003/1004/1005/2000/1093 — fall back if needed
   const getNutrient = (...keys) => {
     for (const k of keys) {
       if (nutrients[k] != null) return nutrients[k];
@@ -260,7 +261,8 @@ function parseUSDAFood(usdaFood, originalItem) {
     protein_g: getNutrient('203', '1003') || 0,
     fat_g: getNutrient('204', '1004') || 0,
     carbs_g: getNutrient('205', '1005') || 0,
-    sugar_g: getNutrient('269', '2000')
+    sugar_g: getNutrient('269', '2000'),
+    sodium_mg: getNutrient('307', '1093')
   };
 
   // Sanity: if calories are 0 but other values aren't, the data is in a weird state
@@ -336,7 +338,8 @@ function scaleMacros(per100g, grams) {
     protein_g: Math.round(per100g.protein_g * factor * 10) / 10,
     carbs_g: Math.round(per100g.carbs_g * factor * 10) / 10,
     fat_g: Math.round(per100g.fat_g * factor * 10) / 10,
-    sugar_g: per100g.sugar_g == null ? null : Math.round(per100g.sugar_g * factor * 10) / 10
+    sugar_g: per100g.sugar_g == null ? null : Math.round(per100g.sugar_g * factor * 10) / 10,
+    sodium_mg: per100g.sodium_mg == null ? null : Math.round(per100g.sodium_mg * factor)
   };
 }
 
@@ -361,7 +364,8 @@ async function resolveItem(item) {
         protein_g: libMatch.protein_g,
         carbs_g: libMatch.carbs_g,
         fat_g: libMatch.fat_g,
-        sugar_g: libMatch.sugar_g
+        sugar_g: libMatch.sugar_g,
+        sodium_mg: libMatch.sodium_mg ?? null
       },
       confidence: 'high',
       original_quantity: item.quantity,
@@ -403,7 +407,8 @@ async function resolveItem(item) {
       protein_g: est.protein_g,
       carbs_g: est.carbs_g,
       fat_g: est.fat_g,
-      sugar_g: est.sugar_g
+      sugar_g: est.sugar_g,
+      sodium_mg: est.sodium_mg ?? null
     },
     confidence: est.confidence,
     original_quantity: item.quantity,
@@ -470,7 +475,7 @@ async function parseAndResolve(text) {
           display_name: item.brand ? `${item.brand} ${item.name}` : item.name,
           source: 'failed',
           confidence: 'low',
-          base_macros: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, sugar_g: null },
+          base_macros: { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, sugar_g: null, sodium_mg: null },
           servings: 1,
           original_quantity: item.quantity,
           original_unit: item.unit

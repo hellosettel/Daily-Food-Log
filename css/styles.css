@@ -383,8 +383,8 @@ ul { list-style: none; padding: 0; margin: 0; }
 
 .macro-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
   margin-top: 18px;
   padding-top: 16px;
   border-top: 1px solid var(--rule-soft);
@@ -395,17 +395,17 @@ ul { list-style: none; padding: 0; margin: 0; }
 }
 
 .mini-name {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: var(--ink-quiet);
   margin-bottom: 4px;
 }
 
 .mini-value {
   font-family: var(--serif);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -447,6 +447,34 @@ button.sugar-mini:active {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* ============================================================
+   Label scanner (Edit/New Food modal)
+   ============================================================ */
+
+.scan-block {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+#ef-scan-btn {
+  font-size: 14px;
+}
+
+.scan-status {
+  margin: 10px 0 0;
+  min-height: 18px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.scan-status.working { color: var(--ink-soft); }
+.scan-status.success { color: var(--good); font-style: normal; }
+.scan-status.error   { color: var(--accent); font-style: normal; }
+.scan-status.lowconf { color: var(--warn); }
 
 /* ============================================================
    Sugar trend block (bottom of Today view)

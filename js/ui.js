@@ -83,7 +83,7 @@ async function renderToday() {
   $('#calories-target').textContent = targets.calories;
 
   // Macro totals
-  let p = 0, c = 0, ca = 0, f = 0, s = 0, sUnknown = false;
+  let p = 0, c = 0, ca = 0, f = 0, s = 0, sUnknown = false, na = 0, naUnknown = false;
   for (const m of meals) {
     const mult = m.servings || 1;
     p += (m.protein_g || 0) * mult;
@@ -95,6 +95,11 @@ async function renderToday() {
     } else {
       s += m.sugar_g * mult;
     }
+    if (m.sodium_mg === null || m.sodium_mg === undefined) {
+      naUnknown = true;
+    } else {
+      na += m.sodium_mg * mult;
+    }
   }
 
   $('#protein-current').textContent = Math.round(p);
@@ -103,6 +108,8 @@ async function renderToday() {
   $('#fat-current').textContent = Math.round(f);
   $('#sugar-current').textContent = Math.round(s);
   $('#sugar-asterisk').classList.toggle('hidden', !sUnknown);
+  $('#sodium-current').textContent = Math.round(na);
+  $('#sodium-asterisk').classList.toggle('hidden', !naUnknown);
 
   // Bars
   const pPct = Math.min(100, (p / targets.protein_g) * 100);
@@ -538,7 +545,8 @@ async function confirmServing() {
     protein_g: food.protein_g,
     carbs_g: food.carbs_g,
     fat_g: food.fat_g,
-    sugar_g: food.sugar_g  // may be null
+    sugar_g: food.sugar_g,        // may be null
+    sodium_mg: food.sodium_mg ?? null
   };
   await Sync.saveMeal(meal);
   hideModal('modal-serving');
@@ -550,7 +558,7 @@ async function confirmServing() {
 /* ===== Custom one-off ===== */
 
 function openCustomModal() {
-  ['custom-name', 'custom-cal', 'custom-protein', 'custom-carbs', 'custom-fat', 'custom-sugar'].forEach(id => {
+  ['custom-name', 'custom-cal', 'custom-protein', 'custom-carbs', 'custom-fat', 'custom-sugar', 'custom-sodium'].forEach(id => {
     $('#' + id).value = '';
   });
   hideModal('modal-add');
@@ -567,6 +575,8 @@ async function confirmCustom() {
   };
   const sugarRaw = $('#custom-sugar').value;
   const sugar = sugarRaw === '' ? null : parseFloat(sugarRaw);
+  const sodiumRaw = $('#custom-sodium').value;
+  const sodium = sodiumRaw === '' ? null : parseFloat(sodiumRaw);
 
   const meal = {
     id: DB.uuid(),
@@ -579,7 +589,8 @@ async function confirmCustom() {
     protein_g: num('custom-protein'),
     carbs_g: num('custom-carbs'),
     fat_g: num('custom-fat'),
-    sugar_g: sugar
+    sugar_g: sugar,
+    sodium_mg: sodium
   };
   await Sync.saveMeal(meal);
   hideModal('modal-custom');
@@ -741,7 +752,8 @@ function computeItemMacros(item) {
     protein_g: round(scale('protein_g'), 1),
     carbs_g: round(scale('carbs_g'), 1),
     fat_g: round(scale('fat_g'), 1),
-    sugar_g: round(scale('sugar_g'), 1)
+    sugar_g: round(scale('sugar_g'), 1),
+    sodium_mg: round(scale('sodium_mg'), 0)
   };
 }
 
@@ -786,6 +798,8 @@ async function saveParsedMeal() {
     for (let i = 0; i < rows.length; i++) {
       const item = STATE.parsedItems[i];
       const macros = readItemMacrosFromInputs(rows[i]);
+      // No sodium input in the quick-log rows — take it from the resolved item
+      macros.sodium_mg = computeItemMacros(item).sodium_mg;
 
       // Optionally save to library
       let foodId = item.food_id;
@@ -800,7 +814,8 @@ async function saveParsedMeal() {
           protein_g: macros.protein_g,
           carbs_g: macros.carbs_g,
           fat_g: macros.fat_g,
-          sugar_g: macros.sugar_g
+          sugar_g: macros.sugar_g,
+          sodium_mg: macros.sodium_mg
         };
         await Sync.saveFood(newFood);
         foodId = newFood.id;
@@ -817,7 +832,8 @@ async function saveParsedMeal() {
         protein_g: macros.protein_g,
         carbs_g: macros.carbs_g,
         fat_g: macros.fat_g,
-        sugar_g: macros.sugar_g
+        sugar_g: macros.sugar_g,
+        sodium_mg: macros.sodium_mg
       };
       await Sync.saveMeal(meal);
     }
@@ -869,8 +885,9 @@ async function confirmSaveAsMeal() {
 
   try {
     // Sum macros across all parsed rows
-    let totals = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, sugar_g: 0 };
+    let totals = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, sugar_g: 0, sodium_mg: 0 };
     let sugarUnknown = false;
+    let sodiumUnknown = false;
     const breakdownParts = [];
 
     rows.forEach((row, idx) => {
@@ -883,6 +900,9 @@ async function confirmSaveAsMeal() {
       else totals.sugar_g += m.sugar_g;
 
       const item = STATE.parsedItems[idx];
+      const sodium = item ? computeItemMacros(item).sodium_mg : null;
+      if (sodium == null) sodiumUnknown = true;
+      else totals.sodium_mg += sodium;
       if (item) {
         const qty = item.original_quantity;
         const unit = item.original_unit;
@@ -899,6 +919,7 @@ async function confirmSaveAsMeal() {
     totals.carbs_g = Math.round(totals.carbs_g * 10) / 10;
     totals.fat_g = Math.round(totals.fat_g * 10) / 10;
     const finalSugar = sugarUnknown ? null : Math.round(totals.sugar_g * 10) / 10;
+    const finalSodium = sodiumUnknown ? null : Math.round(totals.sodium_mg);
 
     // Create the new food (the meal as a single library item)
     const newMeal = {
@@ -910,7 +931,8 @@ async function confirmSaveAsMeal() {
       protein_g: totals.protein_g,
       carbs_g: totals.carbs_g,
       fat_g: totals.fat_g,
-      sugar_g: finalSugar
+      sugar_g: finalSugar,
+      sodium_mg: finalSodium
     };
     await Sync.saveFood(newMeal);
 
@@ -927,7 +949,8 @@ async function confirmSaveAsMeal() {
       protein_g: totals.protein_g,
       carbs_g: totals.carbs_g,
       fat_g: totals.fat_g,
-      sugar_g: finalSugar
+      sugar_g: finalSugar,
+      sodium_mg: finalSodium
     };
     await Sync.saveMeal(logEntry);
 
@@ -1395,6 +1418,7 @@ function bindSettings() {
   $('#add-food-btn').addEventListener('click', () => openEditFood(null));
   $('#ef-save').addEventListener('click', saveEditFood);
   $('#ef-delete').addEventListener('click', deleteEditFood);
+  $('#ef-scan-btn').addEventListener('click', runLabelScan);
 
   $('#export-log-btn').addEventListener('click', exportLog);
   $('#export-all-btn').addEventListener('click', exportAll);
@@ -1491,6 +1515,7 @@ async function openEditFood(id) {
     $('#ef-carbs').value = f.carbs_g;
     $('#ef-fat').value = f.fat_g;
     $('#ef-sugar').value = f.sugar_g == null ? '' : f.sugar_g;
+    $('#ef-sodium').value = f.sodium_mg == null ? '' : f.sodium_mg;
     $('#ef-delete').classList.remove('hidden');
 
     if (admin) {
@@ -1501,7 +1526,7 @@ async function openEditFood(id) {
     }
   } else {
     $('#edit-food-title').textContent = 'New food';
-    ['ef-brand', 'ef-name', 'ef-serving-desc', 'ef-cal', 'ef-protein', 'ef-carbs', 'ef-fat', 'ef-sugar'].forEach(i => $('#' + i).value = '');
+    ['ef-brand', 'ef-name', 'ef-serving-desc', 'ef-cal', 'ef-protein', 'ef-carbs', 'ef-fat', 'ef-sugar', 'ef-sodium'].forEach(i => $('#' + i).value = '');
     $('#ef-delete').classList.add('hidden');
 
     if (admin) {
@@ -1511,6 +1536,7 @@ async function openEditFood(id) {
       adminSection.classList.add('hidden');
     }
   }
+  setScanStatus('', '');
   hideModal('modal-foods');
   showModal('modal-edit-food');
 }
@@ -1523,6 +1549,7 @@ async function saveEditFood() {
     return v === '' ? 0 : (parseFloat(v) || 0);
   };
   const sugarRaw = $('#ef-sugar').value;
+  const sodiumRaw = $('#ef-sodium').value;
   const brand = $('#ef-brand').value.trim();
   const admin = Sync.isAdmin();
   const publishAsSystem = admin && $('#ef-publish-system').checked;
@@ -1537,6 +1564,7 @@ async function saveEditFood() {
     carbs_g: num('ef-carbs'),
     fat_g: num('ef-fat'),
     sugar_g: sugarRaw === '' ? null : parseFloat(sugarRaw),
+    sodium_mg: sodiumRaw === '' ? null : parseFloat(sodiumRaw),
     kind: publishAsSystem ? 'system' : 'household'
   };
 
@@ -1545,6 +1573,71 @@ async function saveEditFood() {
   STATE.editingFoodId = null;
   showToast('Saved');
   openManageFoods();
+}
+
+/* ===== Label scanner ===== */
+
+function setScanStatus(msg, cls) {
+  const el = $('#ef-scan-status');
+  el.textContent = msg;
+  el.classList.remove('working', 'success', 'error', 'lowconf');
+  if (cls) el.classList.add(cls);
+}
+
+async function runLabelScan() {
+  const btn = $('#ef-scan-btn');
+  btn.disabled = true;
+  setScanStatus('Opening camera…', 'working');
+
+  try {
+    const result = await LabelScanner.scanLabel({
+      onImagePicked: () => setScanStatus('Reading label…', 'working')
+    });
+
+    if (result === null) {
+      // User cancelled the camera/picker
+      setScanStatus('', '');
+      return;
+    }
+
+    const allNull = result.calories == null && result.protein_g == null &&
+      result.carbs_g == null && result.fat_g == null &&
+      result.sugar_g == null && result.sodium_mg == null;
+    if (allNull && !result.serving_desc) {
+      setScanStatus('Couldn’t find nutrition info — try another photo', 'error');
+      return;
+    }
+
+    // Fill only blank fields — never overwrite what the user typed.
+    // Brand and name are always left alone (user types those).
+    const fillIfBlank = (id, val) => {
+      if (val == null) return;
+      const input = $('#' + id);
+      if (input.value === '' || input.value == null) input.value = val;
+    };
+    fillIfBlank('ef-serving-desc', result.serving_desc);
+    fillIfBlank('ef-cal', result.calories);
+    fillIfBlank('ef-protein', result.protein_g);
+    fillIfBlank('ef-carbs', result.carbs_g);
+    fillIfBlank('ef-fat', result.fat_g);
+    fillIfBlank('ef-sugar', result.sugar_g);
+    fillIfBlank('ef-sodium', result.sodium_mg);
+
+    let msg, cls;
+    if (result.confidence === 'high') {
+      msg = 'Extracted successfully — verify and save'; cls = 'success';
+    } else if (result.confidence === 'medium') {
+      msg = 'Extracted — double-check values before saving'; cls = 'lowconf';
+    } else {
+      msg = 'Partial extraction — please verify or re-scan'; cls = 'lowconf';
+    }
+    if (result.notes) msg += ` (${result.notes})`;
+    setScanStatus(msg, cls);
+  } catch (e) {
+    setScanStatus('Scan failed: ' + (e.message || 'try again'), 'error');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function deleteEditFood() {
