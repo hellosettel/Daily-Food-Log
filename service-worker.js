@@ -9,7 +9,7 @@
    To force update: bump CACHE_VERSION below and redeploy.
    ============================================================ */
 
-const CACHE_VERSION = 'v3.2.0';
+const CACHE_VERSION = 'v3.3.0';
 const STATIC_CACHE = `daily-log-static-${CACHE_VERSION}`;
 
 const APP_SHELL = [
