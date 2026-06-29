@@ -317,6 +317,7 @@
       <div class="modal-tabs">
         <button class="tab-btn active" data-tab="search">Search</button>
         <button class="tab-btn" data-tab="quicklog">Quick log</button>
+        <button class="tab-btn" data-tab="custom">Custom item</button>
       </div>
 
       <div class="modal-body">
@@ -334,8 +335,6 @@
             <h4 class="section-h">All foods</h4>
             <ul class="food-list" id="food-list"></ul>
           </div>
-
-          <button id="custom-add-btn" class="btn-secondary full-width">+ Custom item (one-off)</button>
         </div>
 
         <!-- ===== Quick log tab (parser) ===== -->
@@ -380,6 +379,48 @@
           </div>
         </div>
 
+        <!-- ===== Custom item tab ===== -->
+        <div class="tab-pane" id="tab-custom">
+          <div class="scan-block">
+            <button id="custom-scan-btn" class="btn-secondary full-width" type="button">
+              📷 Scan nutrition label
+            </button>
+            <p id="custom-scan-status" class="scan-status"></p>
+          </div>
+          <p class="settings-note">One-off item. Won't be saved to the food library.</p>
+          <div class="form-row">
+            <label>Name</label>
+            <input type="text" id="custom-name" placeholder="e.g. Restaurant burger" />
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Calories</label>
+              <input type="number" id="custom-cal" inputmode="numeric" />
+            </div>
+            <div class="form-row">
+              <label>Protein (g)</label>
+              <input type="number" id="custom-protein" inputmode="numeric" />
+            </div>
+            <div class="form-row">
+              <label>Carbs (g)</label>
+              <input type="number" id="custom-carbs" inputmode="numeric" />
+            </div>
+            <div class="form-row">
+              <label>Fat (g)</label>
+              <input type="number" id="custom-fat" inputmode="numeric" />
+            </div>
+            <div class="form-row full-row">
+              <label>Sugar (g) <span class="hint">— leave blank if unknown</span></label>
+              <input type="number" id="custom-sugar" inputmode="numeric" />
+            </div>
+            <div class="form-row full-row">
+              <label>Sodium (mg) <span class="hint">— leave blank if unknown</span></label>
+              <input type="number" id="custom-sodium" inputmode="numeric" />
+            </div>
+          </div>
+          <button id="custom-confirm" class="btn-primary full-width">Add to log</button>
+        </div>
+
       </div>
     </div>
   </div>
@@ -406,52 +447,6 @@
         <div class="serving-preview" id="serving-preview"></div>
 
         <button id="serving-confirm" class="btn-primary full-width">Add</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== CUSTOM ITEM MODAL ===== -->
-  <div id="modal-custom" class="modal hidden">
-    <div class="modal-backdrop" data-close="modal-custom"></div>
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <h2>Custom item</h2>
-        <button class="modal-close" data-close="modal-custom">×</button>
-      </div>
-      <div class="modal-body">
-        <p class="settings-note">One-off item. Won't be saved to the food library.</p>
-        <div class="form-row">
-          <label>Name</label>
-          <input type="text" id="custom-name" placeholder="e.g. Restaurant burger" />
-        </div>
-        <div class="form-grid">
-          <div class="form-row">
-            <label>Calories</label>
-            <input type="number" id="custom-cal" inputmode="numeric" />
-          </div>
-          <div class="form-row">
-            <label>Protein (g)</label>
-            <input type="number" id="custom-protein" inputmode="numeric" />
-          </div>
-          <div class="form-row">
-            <label>Carbs (g)</label>
-            <input type="number" id="custom-carbs" inputmode="numeric" />
-          </div>
-          <div class="form-row">
-            <label>Fat (g)</label>
-            <input type="number" id="custom-fat" inputmode="numeric" />
-          </div>
-          <div class="form-row full-row">
-            <label>Sugar (g) <span class="hint">— leave blank if unknown</span></label>
-            <input type="number" id="custom-sugar" inputmode="numeric" />
-          </div>
-          <div class="form-row full-row">
-            <label>Sodium (mg) <span class="hint">— leave blank if unknown</span></label>
-            <input type="number" id="custom-sodium" inputmode="numeric" />
-          </div>
-        </div>
-        <button id="custom-confirm" class="btn-primary full-width">Add to log</button>
       </div>
     </div>
   </div>

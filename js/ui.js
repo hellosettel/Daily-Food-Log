@@ -371,13 +371,13 @@ function bindAddFlow() {
     btn.addEventListener('click', () => openAddModal(btn.dataset.meal));
   });
   $('#food-search').addEventListener('input', renderFoodList);
-  $('#custom-add-btn').addEventListener('click', openCustomModal);
 
   $('#serving-up').addEventListener('click', () => stepServing(1));
   $('#serving-down').addEventListener('click', () => stepServing(-1));
   $('#serving-confirm').addEventListener('click', confirmServing);
 
   $('#custom-confirm').addEventListener('click', confirmCustom);
+  $('#custom-scan-btn').addEventListener('click', () => runLabelScan(SCAN_TARGETS.custom));
 
   // Tab switching
   $$('.tab-btn').forEach(btn => {
@@ -419,6 +419,12 @@ async function openAddModal(mealType) {
   $('#quicklog-totals').classList.add('hidden');
   $('#meal-name-prompt').classList.add('hidden');
   STATE.parsedItems = [];
+
+  // Reset Custom item tab
+  ['custom-name', 'custom-cal', 'custom-protein', 'custom-carbs', 'custom-fat', 'custom-sugar', 'custom-sodium'].forEach(id => {
+    $('#' + id).value = '';
+  });
+  setScanStatus('custom-scan-status', '', '');
 
   await renderFavorites();
   await renderFoodList();
@@ -555,15 +561,7 @@ async function confirmServing() {
   showToast('Logged');
 }
 
-/* ===== Custom one-off ===== */
-
-function openCustomModal() {
-  ['custom-name', 'custom-cal', 'custom-protein', 'custom-carbs', 'custom-fat', 'custom-sugar', 'custom-sodium'].forEach(id => {
-    $('#' + id).value = '';
-  });
-  hideModal('modal-add');
-  showModal('modal-custom');
-}
+/* ===== Custom one-off (Custom item tab) ===== */
 
 async function confirmCustom() {
   const name = $('#custom-name').value.trim();
@@ -593,7 +591,7 @@ async function confirmCustom() {
     sodium_mg: sodium
   };
   await Sync.saveMeal(meal);
-  hideModal('modal-custom');
+  hideModal('modal-add');
   renderToday();
   showToast('Logged');
 }
@@ -1418,7 +1416,7 @@ function bindSettings() {
   $('#add-food-btn').addEventListener('click', () => openEditFood(null));
   $('#ef-save').addEventListener('click', saveEditFood);
   $('#ef-delete').addEventListener('click', deleteEditFood);
-  $('#ef-scan-btn').addEventListener('click', runLabelScan);
+  $('#ef-scan-btn').addEventListener('click', () => runLabelScan(SCAN_TARGETS.editFood));
 
   $('#export-log-btn').addEventListener('click', exportLog);
   $('#export-all-btn').addEventListener('click', exportAll);
@@ -1536,7 +1534,7 @@ async function openEditFood(id) {
       adminSection.classList.add('hidden');
     }
   }
-  setScanStatus('', '');
+  setScanStatus('ef-scan-status', '', '');
   hideModal('modal-foods');
   showModal('modal-edit-food');
 }
@@ -1575,28 +1573,62 @@ async function saveEditFood() {
   openManageFoods();
 }
 
-/* ===== Label scanner ===== */
+/* ===== Label scanner =====
+   Shared between the Edit/New Food form and the Custom item tab.
+   Each target supplies its own button/status IDs and a field map.
+   A null field id means "this form has no such field — skip it". */
 
-function setScanStatus(msg, cls) {
-  const el = $('#ef-scan-status');
+const SCAN_TARGETS = {
+  editFood: {
+    btnId: 'ef-scan-btn',
+    statusId: 'ef-scan-status',
+    fields: {
+      serving_desc: 'ef-serving-desc',
+      calories: 'ef-cal',
+      protein_g: 'ef-protein',
+      carbs_g: 'ef-carbs',
+      fat_g: 'ef-fat',
+      sugar_g: 'ef-sugar',
+      sodium_mg: 'ef-sodium'
+    }
+  },
+  custom: {
+    btnId: 'custom-scan-btn',
+    statusId: 'custom-scan-status',
+    fields: {
+      serving_desc: null,   // custom items have no serving_desc field
+      calories: 'custom-cal',
+      protein_g: 'custom-protein',
+      carbs_g: 'custom-carbs',
+      fat_g: 'custom-fat',
+      sugar_g: 'custom-sugar',
+      sodium_mg: 'custom-sodium'
+    }
+  }
+};
+
+function setScanStatus(statusId, msg, cls) {
+  const el = $('#' + statusId);
+  if (!el) return;
   el.textContent = msg;
   el.classList.remove('working', 'success', 'error', 'lowconf');
   if (cls) el.classList.add(cls);
 }
 
-async function runLabelScan() {
-  const btn = $('#ef-scan-btn');
+async function runLabelScan(target) {
+  const { btnId, statusId, fields } = target;
+  const btn = $('#' + btnId);
   btn.disabled = true;
-  setScanStatus('Opening camera…', 'working');
+  setScanStatus(statusId, 'Opening camera…', 'working');
 
   try {
     const result = await LabelScanner.scanLabel({
-      onImagePicked: () => setScanStatus('Reading label…', 'working')
+      onImagePicked: () => setScanStatus(statusId, 'Reading label…', 'working')
     });
 
     if (result === null) {
       // User cancelled the camera/picker
-      setScanStatus('', '');
+      setScanStatus(statusId, '', '');
       return;
     }
 
@@ -1604,24 +1636,24 @@ async function runLabelScan() {
       result.carbs_g == null && result.fat_g == null &&
       result.sugar_g == null && result.sodium_mg == null;
     if (allNull && !result.serving_desc) {
-      setScanStatus('Couldn’t find nutrition info — try another photo', 'error');
+      setScanStatus(statusId, 'Couldn’t find nutrition info — try another photo', 'error');
       return;
     }
 
     // Fill only blank fields — never overwrite what the user typed.
-    // Brand and name are always left alone (user types those).
+    // Name/brand are always left alone (user types those).
     const fillIfBlank = (id, val) => {
-      if (val == null) return;
+      if (!id || val == null) return;
       const input = $('#' + id);
       if (input.value === '' || input.value == null) input.value = val;
     };
-    fillIfBlank('ef-serving-desc', result.serving_desc);
-    fillIfBlank('ef-cal', result.calories);
-    fillIfBlank('ef-protein', result.protein_g);
-    fillIfBlank('ef-carbs', result.carbs_g);
-    fillIfBlank('ef-fat', result.fat_g);
-    fillIfBlank('ef-sugar', result.sugar_g);
-    fillIfBlank('ef-sodium', result.sodium_mg);
+    fillIfBlank(fields.serving_desc, result.serving_desc);
+    fillIfBlank(fields.calories, result.calories);
+    fillIfBlank(fields.protein_g, result.protein_g);
+    fillIfBlank(fields.carbs_g, result.carbs_g);
+    fillIfBlank(fields.fat_g, result.fat_g);
+    fillIfBlank(fields.sugar_g, result.sugar_g);
+    fillIfBlank(fields.sodium_mg, result.sodium_mg);
 
     let msg, cls;
     if (result.confidence === 'high') {
@@ -1632,9 +1664,9 @@ async function runLabelScan() {
       msg = 'Partial extraction — please verify or re-scan'; cls = 'lowconf';
     }
     if (result.notes) msg += ` (${result.notes})`;
-    setScanStatus(msg, cls);
+    setScanStatus(statusId, msg, cls);
   } catch (e) {
-    setScanStatus('Scan failed: ' + (e.message || 'try again'), 'error');
+    setScanStatus(statusId, 'Scan failed: ' + (e.message || 'try again'), 'error');
   } finally {
     btn.disabled = false;
   }
