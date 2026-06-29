@@ -109,7 +109,8 @@ Schema:
 }
 
 Rules:
-- ALWAYS break compound dishes into individual ingredients. "Spaghetti with Rao's sauce and beef" → 3 items.
+- ALWAYS break compound DISHES (multiple distinct foods served together) into individual ingredients. "Spaghetti with Rao's sauce and beef" → 3 items.
+- But a compound PRODUCT NAME is a SINGLE ingredient — do NOT split its modifier words into separate items. "honey walnut cream cheese" is ONE item (name: "honey walnut cream cheese"), not "honey" + "walnut" + "cream cheese". Same for "brown sugar cinnamon oatmeal", "roasted garlic hummus", "sea salt caramel gelato". Only split when the user clearly describes separate foods (e.g. "eggs and bacon", "rice with chicken").
 - Extract brand names when present (e.g. "Rao's", "Graziano", "Chobani"). Brand should NOT appear in the name field — only in the brand field.
 - The name field is generic ("tomato basil sauce" not "Rao's tomato basil sauce").
 - For prep state: if user says "cooked", note that. If they say "raw" or "dry" or "uncooked", note that. Otherwise null.
@@ -130,6 +131,13 @@ Output:
   {"name":"tomato basil sauce","brand":"Rao's","quantity":4,"unit":"oz","prep":null},
   {"name":"purple grapes","brand":null,"quantity":1,"unit":"cup","prep":null},
   {"name":"pistachios","brand":null,"quantity":0.25,"unit":"cup","prep":null}
+]}
+
+Input: "2 tbsp Philadelphia honey walnut cream cheese on a bagel"
+Output:
+{"items":[
+  {"name":"honey walnut cream cheese","brand":"Philadelphia","quantity":2,"unit":"tbsp","prep":null},
+  {"name":"bagel","brand":null,"quantity":1,"unit":"count","prep":null}
 ]}
 
 Input: "Two eggs scrambled and 3 strips of bacon"

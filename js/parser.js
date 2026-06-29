@@ -83,53 +83,85 @@ async function estimateMacros(item) {
 
 /* ===== Step 2: library lookup ===== */
 
+// Token-based scoring. Replaces the old rigid tier system, which missed
+// obvious matches when the user omitted the brand (e.g. "honey walnut cream
+// cheese" vs library "Philadelphia Honey Walnut Cream Cheese").
+//
+// Per candidate:
+//   - token overlap ratio  = shared / max(foodTokens, queryTokens)  [0..1]
+//   - brand match bonus     = +0.3 if brands match, -0.4 if they differ
+//   - substring bonus       = +0.2 if one name contains the other
+//   - short-query cap       = score capped at 0.7 when query < 2 tokens
+// Candidates below 0.5 are rejected. Highest score wins; ties prefer branded
+// items (intentionally added by the user).
 async function findInLibrary(item) {
   const allFoods = await DB.all('foods');
   if (!allFoods || allFoods.length === 0) return null;
 
-  const nameLower = item.name.toLowerCase();
-  const brandLower = item.brand ? item.brand.toLowerCase() : null;
+  const queryName = (item.name || '').toLowerCase();
+  const queryBrand = item.brand ? item.brand.toLowerCase() : null;
+  const queryTokens = tokenize(queryName);
 
-  // Tier 1: exact brand + name match (substring on name)
-  if (brandLower) {
-    const exact = allFoods.find(f =>
-      f.brand && f.brand.toLowerCase() === brandLower &&
-      f.name.toLowerCase().includes(nameLower)
-    );
-    if (exact) return exact;
+  const scored = allFoods.map(f => {
+    const foodName = (f.name || '').toLowerCase();
+    const foodBrand = f.brand ? f.brand.toLowerCase() : null;
+    const foodTokens = tokenize(foodName);
 
-    // Tier 2: brand match, fuzzier name
-    const brandFuzzy = allFoods.find(f =>
-      f.brand && f.brand.toLowerCase() === brandLower &&
-      tokenOverlap(f.name.toLowerCase(), nameLower) >= 1
-    );
-    if (brandFuzzy) return brandFuzzy;
+    let shared = 0;
+    for (const t of queryTokens) if (foodTokens.has(t)) shared++;
+    const denom = Math.max(foodTokens.size, queryTokens.size) || 1;
+    const overlap = shared / denom;
+
+    let brandAdj = 0;
+    if (queryBrand) {
+      if (foodBrand && foodBrand === queryBrand) brandAdj = 0.3;
+      else if (foodBrand && foodBrand !== queryBrand) brandAdj = -0.4;
+    }
+
+    let substringAdj = 0;
+    if (queryName && foodName &&
+        (foodName.includes(queryName) || queryName.includes(foodName))) {
+      substringAdj = 0.2;
+    }
+
+    let score = overlap + brandAdj + substringAdj;
+
+    let capped = false;
+    if (queryTokens.size < 2 && score > 0.7) { score = 0.7; capped = true; }
+
+    return {
+      food: f,
+      score,
+      branded: !!foodBrand,
+      breakdown: { overlap: Number(overlap.toFixed(3)), brandAdj, substringAdj, capped }
+    };
+  });
+
+  // Diagnostics — makes future misses inspectable in the console.
+  console.log('[findInLibrary] parsed item:', { name: item.name, brand: item.brand || null });
+  scored
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .forEach(c => console.log(
+      `[findInLibrary]   "${c.food.brand ? c.food.brand + ' ' : ''}${c.food.name}" score=${c.score.toFixed(3)}`,
+      c.breakdown
+    ));
+
+  const qualifying = scored.filter(c => c.score >= 0.5);
+  if (qualifying.length === 0) {
+    console.log('[findInLibrary] no candidate ≥ 0.5 — falling through to USDA/AI');
+    return null;
   }
 
-  // Tier 3: name-only exact (case-insensitive)
-  const nameExact = allFoods.find(f =>
-    !f.brand &&
-    f.name.toLowerCase() === nameLower
-  );
-  if (nameExact) return nameExact;
+  qualifying.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (b.branded ? 1 : 0) - (a.branded ? 1 : 0); // tie-break: prefer branded
+  });
 
-  // Tier 4: name-only substring (only consider unbranded matches to avoid
-  // accidentally pulling a different brand's macros)
-  const nameSub = allFoods.find(f =>
-    !f.brand &&
-    (f.name.toLowerCase().includes(nameLower) || nameLower.includes(f.name.toLowerCase()))
-  );
-  if (nameSub) return nameSub;
-
-  return null;
-}
-
-function tokenOverlap(a, b) {
-  const ta = new Set(a.split(/\s+/));
-  const tb = new Set(b.split(/\s+/));
-  let count = 0;
-  for (const t of ta) if (tb.has(t)) count++;
-  return count;
+  const selected = qualifying[0];
+  console.log(`[findInLibrary] selected "${selected.food.brand ? selected.food.brand + ' ' : ''}${selected.food.name}" score=${selected.score.toFixed(3)}`);
+  return selected.food;
 }
 
 /* ===== Step 3: USDA lookup ===== */

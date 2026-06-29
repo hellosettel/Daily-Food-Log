@@ -226,63 +226,67 @@ async function renderSugarTrend(currentDate) {
   footnoteEl.textContent = `Average based on ${past.length} logged ${past.length === 1 ? 'day' : 'days'}.`;
 }
 
-async function openSugarAttribution(date) {
+// Generic macro attribution modal — used by both sugar and sodium.
+//   openMacroAttribution('sugar_g', 'Sugar', 'g')
+//   openMacroAttribution('sodium_mg', 'Sodium', 'mg')
+async function openMacroAttribution(macroKey, label, unit) {
+  const date = STATE.currentDate;
   const user = Sync.currentUser();
   if (!user) return;
   const meals = (await DB.allByIndex('meals', 'by_date', date)).filter(m => m.user_id === user.id);
 
-  // Build sorted list of contributors
+  // Build sorted list of contributors for the chosen macro
   const contributors = meals.map(m => ({
     name: m.food_name,
-    sugar: m.sugar_g == null ? null : m.sugar_g * (m.servings || 1),
+    value: m[macroKey] == null ? null : m[macroKey] * (m.servings || 1),
     meal_type: m.meal_type
   }));
 
   // Separate known from unknown
-  const known = contributors.filter(c => c.sugar != null && c.sugar > 0);
-  known.sort((a, b) => b.sugar - a.sugar);
-  const unknownCount = contributors.filter(c => c.sugar == null).length;
-  const totalKnown = known.reduce((s, c) => s + c.sugar, 0);
+  const known = contributors.filter(c => c.value != null && c.value > 0);
+  known.sort((a, b) => b.value - a.value);
+  const unknownCount = contributors.filter(c => c.value == null).length;
+  const totalKnown = known.reduce((s, c) => s + c.value, 0);
 
   // Title — context for which day
   const todayStr = DB.todayLocalDate();
-  let titleText = 'Sugar — Today';
+  let titleText = `${label} — Today`;
   if (date !== todayStr) {
     const d = DB.parseYMD(date);
-    titleText = 'Sugar — ' + d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    titleText = `${label} — ` + d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
-  $('#sugar-attr-title').textContent = titleText;
-  $('#sugar-attr-total-val').textContent = `${Math.round(totalKnown)}g${unknownCount > 0 ? '*' : ''}`;
+  $('#attr-title').textContent = titleText;
+  $('#attr-total-val').textContent = `${Math.round(totalKnown)}${unit}${unknownCount > 0 ? '*' : ''}`;
 
   // Build list
-  const list = $('#sugar-attr-list');
+  const list = $('#attr-list');
   list.innerHTML = '';
 
-  const max = known[0]?.sugar || 1;
+  const max = known[0]?.value || 1;
   for (const c of known) {
     const li = document.createElement('li');
-    li.className = 'sugar-attr-row';
-    const pct = (c.sugar / max) * 100;
+    li.className = 'attr-row';
+    const pct = (c.value / max) * 100;
     li.innerHTML = `
-      <div class="sugar-attr-info">
-        <div class="sugar-attr-name">${escapeHTML(c.name)}</div>
-        <div class="sugar-attr-meta">${capitalize(c.meal_type)}</div>
-        <div class="sugar-attr-bar"><div class="sugar-attr-fill" style="width:${pct}%"></div></div>
+      <div class="attr-info">
+        <div class="attr-name">${escapeHTML(c.name)}</div>
+        <div class="attr-meta">${capitalize(c.meal_type)}</div>
+        <div class="attr-bar"><div class="attr-fill" style="width:${pct}%"></div></div>
       </div>
-      <div class="sugar-attr-val">${Math.round(c.sugar * 10) / 10}g</div>
+      <div class="attr-val">${Math.round(c.value * 10) / 10}${unit}</div>
     `;
     list.appendChild(li);
   }
 
-  const noteEl = $('#sugar-attr-note');
+  const noteEl = $('#attr-note');
   if (unknownCount > 0) {
-    noteEl.textContent = `${unknownCount} logged item${unknownCount === 1 ? '' : 's'} had no sugar value. Actual total may be higher.`;
+    noteEl.textContent = `${unknownCount} logged item${unknownCount === 1 ? '' : 's'} had no ${label.toLowerCase()} value. Actual total may be higher.`;
     noteEl.classList.remove('hidden');
   } else {
     noteEl.classList.add('hidden');
   }
 
-  showModal('modal-sugar');
+  showModal('modal-attribution');
 }
 
 function renderMealItem(m) {
@@ -294,9 +298,11 @@ function renderMealItem(m) {
   const carb = Math.round((m.carbs_g || 0) * mult);
   const fat = Math.round((m.fat_g || 0) * mult);
   const sug = (m.sugar_g === null || m.sugar_g === undefined) ? null : Math.round(m.sugar_g * mult);
+  const sod = (m.sodium_mg === null || m.sodium_mg === undefined) ? null : Math.round(m.sodium_mg * mult);
 
   const servingLabel = mult === 1 ? '' : `${mult}× `;
   const sugarLabel = sug === null ? 'sugar —' : `${sug}g sugar`;
+  const sodiumLabel = sod === null ? 'sodium —' : `${sod}mg sodium`;
 
   li.innerHTML = `
     <div class="meal-item-info">
@@ -307,6 +313,7 @@ function renderMealItem(m) {
         <span>${carb}g C</span>
         <span>${fat}g F</span>
         <span>${sugarLabel}</span>
+        <span>${sodiumLabel}</span>
       </div>
     </div>
     <button class="meal-item-delete" aria-label="Remove">×</button>
@@ -332,8 +339,9 @@ function bindDayNav() {
   $('#day-prev').addEventListener('click', () => shiftDay(-1));
   $('#day-next').addEventListener('click', () => shiftDay(1));
 
-  // Sugar attribution
-  $('#sugar-tap').addEventListener('click', () => openSugarAttribution(STATE.currentDate));
+  // Sugar / sodium attribution
+  $('#sugar-tap').addEventListener('click', () => openMacroAttribution('sugar_g', 'Sugar', 'g'));
+  $('#sodium-tap').addEventListener('click', () => openMacroAttribution('sodium_mg', 'Sodium', 'mg'));
 
   // Swipe to change day
   let touchStartX = 0;

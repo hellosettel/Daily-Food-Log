@@ -97,15 +97,16 @@
               <div class="mini-name">Fat</div>
               <div class="mini-value"><span id="fat-current">0</span>g</div>
             </div>
-            <button class="macro-mini sugar-mini" id="sugar-tap" type="button">
+            <button class="macro-mini tap-mini" id="sugar-tap" type="button">
               <div class="mini-name">Sugar <span id="sugar-asterisk" class="asterisk hidden" title="Some logged items had no sugar value">*</span></div>
               <div class="mini-value"><span id="sugar-current">0</span>g</div>
               <div class="mini-hint">tap for breakdown</div>
             </button>
-            <div class="macro-mini sodium-mini">
+            <button class="macro-mini tap-mini" id="sodium-tap" type="button">
               <div class="mini-name">Sodium <span id="sodium-asterisk" class="asterisk hidden" title="Some logged items had no sodium value">*</span></div>
               <div class="mini-value"><span id="sodium-current">0</span>mg</div>
-            </div>
+              <div class="mini-hint">tap for breakdown</div>
+            </button>
           </div>
         </div>
 
@@ -539,22 +540,22 @@
     </div>
   </div>
 
-  <!-- ===== SUGAR ATTRIBUTION MODAL ===== -->
-  <div id="modal-sugar" class="modal hidden">
-    <div class="modal-backdrop" data-close="modal-sugar"></div>
+  <!-- ===== MACRO ATTRIBUTION MODAL (sugar / sodium) ===== -->
+  <div id="modal-attribution" class="modal hidden">
+    <div class="modal-backdrop" data-close="modal-attribution"></div>
     <div class="modal-sheet">
       <div class="modal-handle"></div>
       <div class="modal-header">
-        <h2 id="sugar-attr-title">Sugar breakdown</h2>
-        <button class="modal-close" data-close="modal-sugar">×</button>
+        <h2 id="attr-title">Breakdown</h2>
+        <button class="modal-close" data-close="modal-attribution">×</button>
       </div>
       <div class="modal-body">
-        <div class="sugar-attr-total">
-          <span id="sugar-attr-total-val">0g</span>
-          <span class="sugar-attr-total-label">total</span>
+        <div class="attr-total">
+          <span id="attr-total-val">0g</span>
+          <span class="attr-total-label">total</span>
         </div>
-        <ul class="sugar-attr-list" id="sugar-attr-list"></ul>
-        <p class="sugar-attr-note hidden" id="sugar-attr-note"></p>
+        <ul class="attr-list" id="attr-list"></ul>
+        <p class="attr-note hidden" id="attr-note"></p>
       </div>
     </div>
   </div>

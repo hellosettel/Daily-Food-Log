@@ -410,11 +410,11 @@ ul { list-style: none; padding: 0; margin: 0; }
   letter-spacing: -0.01em;
 }
 
-.sugar-mini {
+.tap-mini {
   position: relative;
 }
 
-button.sugar-mini {
+button.tap-mini {
   background: var(--bg);
   border: none;
   border-radius: 8px;
@@ -429,7 +429,7 @@ button.sugar-mini {
   transition: background 0.15s ease, transform 0.1s ease;
   font-family: inherit;
 }
-button.sugar-mini:active {
+button.tap-mini:active {
   background: var(--bg-deep);
   transform: scale(0.96);
 }
@@ -1420,7 +1420,7 @@ button.sugar-mini:active {
    Sugar attribution modal
    ============================================================ */
 
-.sugar-attr-total {
+.attr-total {
   text-align: center;
   margin-bottom: 18px;
   padding: 16px;
@@ -1428,7 +1428,7 @@ button.sugar-mini:active {
   border: 1px solid var(--rule-soft);
   border-radius: 12px;
 }
-.sugar-attr-total #sugar-attr-total-val {
+.attr-total #attr-total-val {
   font-family: var(--serif);
   font-size: 42px;
   font-weight: 500;
@@ -1436,7 +1436,7 @@ button.sugar-mini:active {
   display: block;
   line-height: 1;
 }
-.sugar-attr-total-label {
+.attr-total-label {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -1446,14 +1446,14 @@ button.sugar-mini:active {
   display: block;
 }
 
-.sugar-attr-list {
+.attr-list {
   border: 1px solid var(--rule-soft);
   border-radius: 12px;
   background: var(--bg-elev);
   overflow: hidden;
 }
-.sugar-attr-list:empty::before {
-  content: 'No sugar logged for this day.';
+.attr-list:empty::before {
+  content: 'Nothing logged for this day.';
   display: block;
   text-align: center;
   padding: 20px;
@@ -1463,7 +1463,7 @@ button.sugar-mini:active {
   font-size: 14px;
 }
 
-.sugar-attr-row {
+.attr-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1471,22 +1471,22 @@ button.sugar-mini:active {
   border-bottom: 1px solid var(--rule-soft);
   gap: 12px;
 }
-.sugar-attr-row:last-child { border-bottom: none; }
+.attr-row:last-child { border-bottom: none; }
 
-.sugar-attr-info { flex: 1; min-width: 0; }
-.sugar-attr-name {
+.attr-info { flex: 1; min-width: 0; }
+.attr-name {
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sugar-attr-meta {
+.attr-meta {
   font-size: 11px;
   color: var(--ink-quiet);
   margin-top: 2px;
 }
-.sugar-attr-val {
+.attr-val {
   font-family: var(--serif);
   font-size: 18px;
   font-weight: 500;
@@ -1494,20 +1494,20 @@ button.sugar-mini:active {
   text-align: right;
   white-space: nowrap;
 }
-.sugar-attr-bar {
+.attr-bar {
   height: 4px;
   background: var(--bg-deep);
   border-radius: 2px;
   margin-top: 6px;
   overflow: hidden;
 }
-.sugar-attr-fill {
+.attr-fill {
   height: 100%;
   background: var(--accent);
   border-radius: 2px;
 }
 
-.sugar-attr-note {
+.attr-note {
   margin-top: 16px;
   font-size: 13px;
   color: var(--ink-soft);
